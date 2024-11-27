@@ -1,0 +1,16 @@
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+phoenix_vaults = "Basis9pRdq5cFHdnML4asQE8oFjRWX7qbL9H5boN91x"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/cosmic_lab_inc.json"
+
+[scripts]
+test = "pnpm run anchor-tests"
