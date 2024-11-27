@@ -58,14 +58,14 @@ fi
 # versions >=2.0.X have the --use-rpc option and --max-sign-attempts which are needed to deploy without failure
 agave-install init 2.0.8
 
-keypair="$HOME/.config/solana/phoenix_vaults.json"
+keypair="$HOME/.config/solana/basis.json"
 program_id=$(solana address -k "$keypair")
 rpc_url=$(solana config get | grep "RPC URL" | cut -d " " -f 3)
-bin="$ROOT/target/deploy/phoenix_vaults.so"
+bin="$ROOT/target/deploy/basis.so"
 auth="$HOME/.config/solana/cosmic_lab_inc.json"
 auth_id=$(solana address -k "$auth")
-idl="$ROOT/target/idl/phoenix_vaults.json"
-buffer="$ROOT/target/deploy/phoenix_vaults-keypair.json"
+idl="$ROOT/target/idl/basis.json"
+buffer="$ROOT/target/deploy/basis-keypair.json"
 
 if [[ $auth_id != "CSMCi5Z6pBjMXQFQayk4WgVPNAgjmo1jTNEryjYyk4xN" ]]; then
   echo "Invalid authority: $auth, must be CSMCi5Z6pBjMXQFQayk4WgVPNAgjmo1jTNEryjYyk4xN"

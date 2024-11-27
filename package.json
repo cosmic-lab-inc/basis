@@ -5,7 +5,7 @@
         "prepare": "husky install",
         "clean": "chmod +x ./clean.sh && ./clean.sh",
         "idl": "cp target/types/basis.ts ts/sdk/src/types/basis.ts && prettier --write ts/sdk/src/types/basis.ts",
-        "anchor-tests": "pnpm run ts-mocha -p ./tsconfig.json -t 1000000 -b tests/basis.ts"
+        "anchor-tests": "pnpm ts-mocha -p ./tsconfig.json -t 1000000 -b tests/basis.ts"
     },
     "dependencies": {
         "@coral-xyz/anchor": "0.28.0",

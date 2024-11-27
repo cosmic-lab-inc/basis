@@ -3,17 +3,27 @@ export type Basis = {
 	name: 'basis';
 	instructions: [
 		{
-			name: 'initializeFundTracker';
+			name: 'initializePool';
 			accounts: [
 				{
 					name: 'authority';
 					isMut: false;
 					isSigner: true;
-					docs: ['Admin-level keypair'];
+					docs: ['To-be authority of the [`Pool`]'];
 				},
 				{
-					name: 'fundTracker';
+					name: 'pool';
 					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'basisMint';
+					isMut: true;
+					isSigner: true;
+				},
+				{
+					name: 'usdcMint';
+					isMut: false;
 					isSigner: false;
 				},
 				{
@@ -30,6 +40,73 @@ export type Basis = {
 					name: 'systemProgram';
 					isMut: false;
 					isSigner: false;
+				},
+				{
+					name: 'tokenProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'associatedTokenProgram';
+					isMut: false;
+					isSigner: false;
+				}
+			];
+			args: [];
+		},
+		{
+			name: 'initializeFundTracker';
+			accounts: [
+				{
+					name: 'fundTracker';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'authority';
+					isMut: false;
+					isSigner: true;
+					docs: ['To-be authority of the [`FundTracker`]'];
+				},
+				{
+					name: 'pool';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'token';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'mint';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'payer';
+					isMut: true;
+					isSigner: true;
+				},
+				{
+					name: 'rent';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'systemProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'tokenProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'associatedTokenProgram';
+					isMut: false;
+					isSigner: false;
 				}
 			];
 			args: [];
@@ -42,18 +119,25 @@ export type Basis = {
 				kind: 'struct';
 				fields: [
 					{
+						name: 'pubkey';
+						docs: ['The PDA of this account'];
+						type: 'publicKey';
+					},
+					{
 						name: 'pool';
 						docs: ['The pool that has an allocation/weight to this fund'];
 						type: 'publicKey';
 					},
 					{
-						name: 'fundTokenMint';
+						name: 'mint';
 						docs: ["Mint of fund's tokenized shares"];
 						type: 'publicKey';
 					},
 					{
-						name: 'fundTokenAccount';
-						docs: ['Authority is the [`FundTracker`] PDA'];
+						name: 'token';
+						docs: [
+							'Authority is the [`FundTracker`] PDA, mint is this [`FundTracker.mint`] (the previous field)'
+						];
 						type: 'publicKey';
 					},
 					{
@@ -62,9 +146,9 @@ export type Basis = {
 						type: 'publicKey';
 					},
 					{
-						name: 'lastUpdateTs';
-						docs: ['Last time the program checked for yield to distribute'];
-						type: 'u64';
+						name: 'initTs';
+						docs: ['Time this account was initialized'];
+						type: 'i64';
 					},
 					{
 						name: 'weight';
@@ -81,6 +165,91 @@ export type Basis = {
 						name: 'padding';
 						type: {
 							array: ['u8', 3];
+						};
+					}
+				];
+			};
+		},
+		{
+			name: 'pool';
+			type: {
+				kind: 'struct';
+				fields: [
+					{
+						name: 'pubkey';
+						docs: ['The PDA of this account'];
+						type: 'publicKey';
+					},
+					{
+						name: 'basisMint';
+						docs: [
+							'Mint of the yield-bearing token backed by this pool: BASIS'
+						];
+						type: 'publicKey';
+					},
+					{
+						name: 'usdcMint';
+						docs: [
+							'USDC mint with which the yield-bearing token is burned/exchanged for, and which deposits are made in'
+						];
+						type: 'publicKey';
+					},
+					{
+						name: 'authority';
+						docs: ['Authority who can sign to modify this account'];
+						type: 'publicKey';
+					},
+					{
+						name: 'funds';
+						docs: [
+							'List of [`FundTracker`] accounts that comprise this pool.',
+							'To prevent breaching the maximum remaining accounts per instruction of 32,',
+							'the number of funds is limited to 16.'
+						];
+						type: {
+							array: ['publicKey', 16];
+						};
+					},
+					{
+						name: 'deposits';
+						docs: [
+							'Total USDC deposits in the pool which backs the BASIS token'
+						];
+						type: 'u128';
+					},
+					{
+						name: 'supply';
+						docs: ['Outstanding supply of the BASIS token'];
+						type: 'u128';
+					},
+					{
+						name: 'exchangeRate';
+						docs: ['Exchange rate of BASIS/USDC'];
+						type: 'u128';
+					},
+					{
+						name: 'lastDistributionTs';
+						docs: ['Last time yield was distributed from each [`FundTracker`]'];
+						type: 'u64';
+					},
+					{
+						name: 'lastRebalanceTs';
+						docs: ['Last time the [`FundTracker`] weights were rebalanced'];
+						type: 'u64';
+					},
+					{
+						name: 'initTs';
+						docs: ['Time this account was initialized'];
+						type: 'i64';
+					},
+					{
+						name: 'bump';
+						type: 'u8';
+					},
+					{
+						name: 'padding';
+						type: {
+							array: ['u8', 7];
 						};
 					}
 				];
@@ -301,17 +470,27 @@ export const IDL: Basis = {
 	name: 'basis',
 	instructions: [
 		{
-			name: 'initializeFundTracker',
+			name: 'initializePool',
 			accounts: [
 				{
 					name: 'authority',
 					isMut: false,
 					isSigner: true,
-					docs: ['Admin-level keypair'],
+					docs: ['To-be authority of the [`Pool`]'],
 				},
 				{
-					name: 'fundTracker',
+					name: 'pool',
 					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'basisMint',
+					isMut: true,
+					isSigner: true,
+				},
+				{
+					name: 'usdcMint',
+					isMut: false,
 					isSigner: false,
 				},
 				{
@@ -329,6 +508,73 @@ export const IDL: Basis = {
 					isMut: false,
 					isSigner: false,
 				},
+				{
+					name: 'tokenProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'associatedTokenProgram',
+					isMut: false,
+					isSigner: false,
+				},
+			],
+			args: [],
+		},
+		{
+			name: 'initializeFundTracker',
+			accounts: [
+				{
+					name: 'fundTracker',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'authority',
+					isMut: false,
+					isSigner: true,
+					docs: ['To-be authority of the [`FundTracker`]'],
+				},
+				{
+					name: 'pool',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'token',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'mint',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'payer',
+					isMut: true,
+					isSigner: true,
+				},
+				{
+					name: 'rent',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'systemProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'tokenProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'associatedTokenProgram',
+					isMut: false,
+					isSigner: false,
+				},
 			],
 			args: [],
 		},
@@ -340,18 +586,25 @@ export const IDL: Basis = {
 				kind: 'struct',
 				fields: [
 					{
+						name: 'pubkey',
+						docs: ['The PDA of this account'],
+						type: 'publicKey',
+					},
+					{
 						name: 'pool',
 						docs: ['The pool that has an allocation/weight to this fund'],
 						type: 'publicKey',
 					},
 					{
-						name: 'fundTokenMint',
+						name: 'mint',
 						docs: ["Mint of fund's tokenized shares"],
 						type: 'publicKey',
 					},
 					{
-						name: 'fundTokenAccount',
-						docs: ['Authority is the [`FundTracker`] PDA'],
+						name: 'token',
+						docs: [
+							'Authority is the [`FundTracker`] PDA, mint is this [`FundTracker.mint`] (the previous field)',
+						],
 						type: 'publicKey',
 					},
 					{
@@ -360,9 +613,9 @@ export const IDL: Basis = {
 						type: 'publicKey',
 					},
 					{
-						name: 'lastUpdateTs',
-						docs: ['Last time the program checked for yield to distribute'],
-						type: 'u64',
+						name: 'initTs',
+						docs: ['Time this account was initialized'],
+						type: 'i64',
 					},
 					{
 						name: 'weight',
@@ -379,6 +632,91 @@ export const IDL: Basis = {
 						name: 'padding',
 						type: {
 							array: ['u8', 3],
+						},
+					},
+				],
+			},
+		},
+		{
+			name: 'pool',
+			type: {
+				kind: 'struct',
+				fields: [
+					{
+						name: 'pubkey',
+						docs: ['The PDA of this account'],
+						type: 'publicKey',
+					},
+					{
+						name: 'basisMint',
+						docs: [
+							'Mint of the yield-bearing token backed by this pool: BASIS',
+						],
+						type: 'publicKey',
+					},
+					{
+						name: 'usdcMint',
+						docs: [
+							'USDC mint with which the yield-bearing token is burned/exchanged for, and which deposits are made in',
+						],
+						type: 'publicKey',
+					},
+					{
+						name: 'authority',
+						docs: ['Authority who can sign to modify this account'],
+						type: 'publicKey',
+					},
+					{
+						name: 'funds',
+						docs: [
+							'List of [`FundTracker`] accounts that comprise this pool.',
+							'To prevent breaching the maximum remaining accounts per instruction of 32,',
+							'the number of funds is limited to 16.',
+						],
+						type: {
+							array: ['publicKey', 16],
+						},
+					},
+					{
+						name: 'deposits',
+						docs: [
+							'Total USDC deposits in the pool which backs the BASIS token',
+						],
+						type: 'u128',
+					},
+					{
+						name: 'supply',
+						docs: ['Outstanding supply of the BASIS token'],
+						type: 'u128',
+					},
+					{
+						name: 'exchangeRate',
+						docs: ['Exchange rate of BASIS/USDC'],
+						type: 'u128',
+					},
+					{
+						name: 'lastDistributionTs',
+						docs: ['Last time yield was distributed from each [`FundTracker`]'],
+						type: 'u64',
+					},
+					{
+						name: 'lastRebalanceTs',
+						docs: ['Last time the [`FundTracker`] weights were rebalanced'],
+						type: 'u64',
+					},
+					{
+						name: 'initTs',
+						docs: ['Time this account was initialized'],
+						type: 'i64',
+					},
+					{
+						name: 'bump',
+						type: 'u8',
+					},
+					{
+						name: 'padding',
+						type: {
+							array: ['u8', 7],
 						},
 					},
 				],

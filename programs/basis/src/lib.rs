@@ -16,6 +16,12 @@ declare_id!("Basis9pRdq5cFHdnML4asQE8oFjRWX7qbL9H5boN91x");
 pub mod basis {
     use super::*;
 
+    pub fn initialize_pool<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, InitializePool<'info>>,
+    ) -> Result<()> {
+        instructions::initialize_pool(ctx)
+    }
+
     pub fn initialize_fund_tracker<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, InitializeFundTracker<'info>>,
     ) -> Result<()> {

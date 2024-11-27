@@ -3,7 +3,7 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-phoenix_vaults = "Basis9pRdq5cFHdnML4asQE8oFjRWX7qbL9H5boN91x"
+basis = "Basis9pRdq5cFHdnML4asQE8oFjRWX7qbL9H5boN91x"
 
 [registry]
 url = "https://api.apr.dev"

@@ -84,10 +84,10 @@ bkg anchor localnet
 sleep 5
 
 # run bootstrap.sh
-cargo test --package phoenix-vaults --test phoenix bootstrap_markets -- --exact --nocapture
+#cargo test --package phoenix-vaults --test phoenix bootstrap_markets -- --exact --nocapture
 
 if [[ $no_test == false ]]; then
-  yarn anchor-tests
+  pnpm anchor-tests
 fi
 
 # if detach is false, run kill_process
