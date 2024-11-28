@@ -1,5 +1,10 @@
 import * as anchor from '@coral-xyz/anchor';
-import { ConfirmOptions, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import {
+	ConfirmOptions,
+	Keypair,
+	LAMPORTS_PER_SOL,
+	PublicKey,
+} from '@solana/web3.js';
 import { before } from 'mocha';
 import {
 	Basis,
@@ -9,6 +14,7 @@ import {
 	AddFundParams,
 	Pool,
 	FundTracker,
+	RemoveFundParams,
 } from '../ts/sdk';
 import { assert } from 'chai';
 import { createAtaIdempotent, createMintIxs, sendAndConfirm } from './helpers';
@@ -116,5 +122,25 @@ describe('basis', () => {
 		const poolAcct: Pool = await program.account.pool.fetch(pool);
 		const fundTrackerAcct: FundTracker = poolAcct.funds[0];
 		assert(fundTrackerAcct.token.equals(fundTrackerToken));
+	});
+
+	it('Remove Fund', async () => {
+		const params: RemoveFundParams = {
+			fundIndex: 0,
+		};
+		const ix = await program.methods
+			.removeFund(params)
+			.accounts({
+				authority: poolAuth.publicKey,
+				payer: poolAuth.publicKey,
+				pool,
+			})
+			.instruction();
+		await sendAndConfirm(conn, poolAuth, [ix]);
+
+		const poolAcct: Pool = await program.account.pool.fetch(pool);
+		const fundTrackerAcct: FundTracker = poolAcct.funds[0];
+		assert(fundTrackerAcct.token.equals(PublicKey.default));
+		assert.strictEqual(fundTrackerAcct.weight, 0);
 	});
 });

@@ -32,3 +32,7 @@ export type Pool = {
 export type AddFundParams = {
 	weight: number;
 };
+
+export type RemoveFundParams = {
+	fundIndex: number;
+};

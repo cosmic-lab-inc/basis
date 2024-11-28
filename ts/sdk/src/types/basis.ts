@@ -106,6 +106,44 @@ export type Basis = {
 					};
 				}
 			];
+		},
+		{
+			name: 'removeFund';
+			accounts: [
+				{
+					name: 'authority';
+					isMut: false;
+					isSigner: true;
+				},
+				{
+					name: 'pool';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'payer';
+					isMut: true;
+					isSigner: true;
+				},
+				{
+					name: 'rent';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'systemProgram';
+					isMut: false;
+					isSigner: false;
+				}
+			];
+			args: [
+				{
+					name: 'params';
+					type: {
+						defined: 'RemoveFundParams';
+					};
+				}
+			];
 		}
 	];
 	accounts: [
@@ -208,6 +246,18 @@ export type Basis = {
 					{
 						name: 'weight';
 						type: 'u32';
+					}
+				];
+			};
+		},
+		{
+			name: 'RemoveFundParams';
+			type: {
+				kind: 'struct';
+				fields: [
+					{
+						name: 'fundIndex';
+						type: 'u8';
 					}
 				];
 			};
@@ -397,6 +447,44 @@ export const IDL: Basis = {
 				},
 			],
 		},
+		{
+			name: 'removeFund',
+			accounts: [
+				{
+					name: 'authority',
+					isMut: false,
+					isSigner: true,
+				},
+				{
+					name: 'pool',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'payer',
+					isMut: true,
+					isSigner: true,
+				},
+				{
+					name: 'rent',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'systemProgram',
+					isMut: false,
+					isSigner: false,
+				},
+			],
+			args: [
+				{
+					name: 'params',
+					type: {
+						defined: 'RemoveFundParams',
+					},
+				},
+			],
+		},
 	],
 	accounts: [
 		{
@@ -498,6 +586,18 @@ export const IDL: Basis = {
 					{
 						name: 'weight',
 						type: 'u32',
+					},
+				],
+			},
+		},
+		{
+			name: 'RemoveFundParams',
+			type: {
+				kind: 'struct',
+				fields: [
+					{
+						name: 'fundIndex',
+						type: 'u8',
 					},
 				],
 			},

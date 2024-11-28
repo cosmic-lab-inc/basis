@@ -28,4 +28,11 @@ pub mod basis {
     ) -> Result<()> {
         instructions::add_fund(ctx, params)
     }
+
+    pub fn remove_fund<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, RemoveFund<'info>>,
+        params: RemoveFundParams,
+    ) -> Result<()> {
+        instructions::remove_fund(ctx, params)
+    }
 }
