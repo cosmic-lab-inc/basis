@@ -5,13 +5,27 @@
         "prepare": "husky install",
         "clean": "chmod +x ./clean.sh && ./clean.sh",
         "idl": "cp target/types/basis.ts ts/sdk/src/types/basis.ts && prettier --write ts/sdk/src/types/basis.ts",
-        "anchor-tests": "pnpm ts-mocha -p ./tsconfig.json -t 1000000 -b tests/basis.ts"
+        "anchor-tests": "pnpm ts-mocha -p ./tsconfig.json -t 1000000 -b tests/basis.ts",
+        "dep:competitions": "cp deps/drift_competitions.so target/deploy/drift_competitions.so",
+        "dep:drift-vaults": "cp deps/drift_vaults.json target/idl/drift_vaults.json && cp deps/drift_vaults.so target/deploy/drift_vaults.so",
+        "dep:drift": "cp deps/drift.json target/idl/drift.json && cp deps/drift.so target/deploy/drift.so",
+        "dep:phoenix": "cp deps/phoenix.so target/deploy/phoenix.so",
+        "dep:phoenix-seat-manager": "cp deps/phoenix_seat_manager.so target/deploy/phoenix_seat_manager.so",
+        "dep:phoenix-vaults": "cp deps/phoenix_vaults.json target/idl/phoenix_vaults.json && cp deps/phoenix_vaults.so target/deploy/phoenix_vaults.so",
+        "dep:pyth": "cp deps/pyth.json target/idl/pyth.json && cp deps/pyth.so target/deploy/pyth.so",
+        "dep:all": "pnpm dep:competitions && pnpm dep:drift-vaults && pnpm dep:drift && pnpm dep:pyth && pnpm dep:phoenix && pnpm dep:phoenix-seat-manager && pnpm dep:phoenix-vaults"
     },
     "dependencies": {
         "@coral-xyz/anchor": "0.28.0",
+        "@cosmic-lab/data-source": "0.7.4",
+        "@cosmic-lab/phoenix-vaults-sdk": "^0.1.7",
+        "@cosmic-lab/prop-shop-sdk": "^0.2.20",
+        "@drift-labs/sdk": "2.96.0-beta.14",
+        "@drift-labs/vaults-sdk": "0.1.468",
         "@ellipsis-labs/phoenix-sdk": "2.0.3",
         "@solana/spl-token": "0.4.8",
-        "@solana/web3.js": "1.91.6"
+        "@solana/web3.js": "1.91.6",
+        "neverthrow": "^8.1.1"
     },
     "devDependencies": {
         "@types/bn.js": "^5.1.0",

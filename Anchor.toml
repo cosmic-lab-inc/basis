@@ -12,5 +12,33 @@ url = "https://api.apr.dev"
 cluster = "localnet"
 wallet = "~/.config/solana/cosmic_lab_inc.json"
 
+[[test.genesis]]
+address = "vAuLTsyrvSfZRuRB3XgvkPwNGgYSs9YRYymVebLKoxR"
+program = "./deps/drift_vaults.so"
+
+[[test.genesis]]
+address = "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH"
+program = "./deps/drift.so"
+
+[[test.genesis]]
+address = "DraWMeQX9LfzQQSYoeBwHAgM5JcqFkgrX7GbTfjzVMVL"
+program = "./deps/drift_competitions.so"
+
+[[test.genesis]]
+address = "FsJ3A3u2vn5cTVofAjvy6y5kwABJAqYWpe4975bi2epH"
+program = "./deps/pyth.so"
+
+[[test.genesis]]
+address = "VLt8tiD4iUGVuxFRr1NiN63BYJGKua5rNpEcsEGzdBq"
+program = "./deps/phoenix_vaults.so"
+
+[[test.genesis]]
+address = "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY"
+program = "./deps/phoenix.so"
+
+[[test.genesis]]
+address = "PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1"
+program = "./deps/phoenix_seat_manager.so"
+
 [scripts]
 test = "pnpm run anchor-tests"

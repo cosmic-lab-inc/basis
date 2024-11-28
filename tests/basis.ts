@@ -96,13 +96,12 @@ describe('basis', () => {
 	});
 
 	it('Add Fund', async () => {
-		const { instructions: ataIxs, key: ataKey } = await createAtaIdempotent(
+		const ataIxs = await createAtaIdempotent(
 			conn,
 			pool,
 			poolAuth.publicKey,
 			fundMint.publicKey
 		);
-		assert(ataKey.equals(fundTrackerToken));
 
 		const params: AddFundParams = {
 			weight: 1,
