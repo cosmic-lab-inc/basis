@@ -4,9 +4,11 @@ import { before } from 'mocha';
 import {
 	Basis,
 	getPoolAddressSync,
-	getFundTrackerAddressSync,
 	MOCK_USDC_MINT,
-	getFundTrackerTokenAddressSync,
+	getPoolFundTrackerTokenAddressSync,
+	AddFundParams,
+	Pool,
+	FundTracker,
 } from '../ts/sdk';
 import { assert } from 'chai';
 import { createAtaIdempotent, createMintIxs, sendAndConfirm } from './helpers';
@@ -27,15 +29,13 @@ describe('basis', () => {
 	const program = anchor.workspace.Basis as anchor.Program<Basis>;
 
 	const poolAuth = Keypair.generate();
-	const fundTrackerAuth = Keypair.generate();
 	const basisMint = Keypair.generate();
 	const usdcMint = MOCK_USDC_MINT;
 	const fundMint = Keypair.generate();
 
 	const pool = getPoolAddressSync(basisMint.publicKey);
-	const fundTracker = getFundTrackerAddressSync(pool, fundMint.publicKey);
-	const fundTrackerToken = getFundTrackerTokenAddressSync(
-		fundTracker,
+	const fundTrackerToken = getPoolFundTrackerTokenAddressSync(
+		pool,
 		fundMint.publicKey
 	);
 
@@ -54,20 +54,6 @@ describe('basis', () => {
 		}
 		console.log('airdropped to poolAuth');
 
-		const fundTrackerAuthAirdropSig = await conn.requestAirdrop(
-			fundTrackerAuth.publicKey,
-			LAMPORTS_PER_SOL * 10
-		);
-		const fundTrackerAuthConfirmAirdrop = (
-			await conn.confirmTransaction(fundTrackerAuthAirdropSig)
-		).value;
-		if (fundTrackerAuthConfirmAirdrop.err) {
-			throw new Error(
-				`Failed to confirm airdrop for fundTrackerAuth: ${fundTrackerAuthConfirmAirdrop.err}`
-			);
-		}
-		console.log('airdropped to fundTrackerAuth');
-
 		const usdcMintIxs = await createMintIxs(
 			conn,
 			payer.publicKey,
@@ -80,12 +66,12 @@ describe('basis', () => {
 
 		const fundMintIxs = await createMintIxs(
 			conn,
-			fundTrackerAuth.publicKey,
+			poolAuth.publicKey,
 			fundMint,
 			6,
-			fundTrackerAuth.publicKey
+			poolAuth.publicKey
 		);
-		await sendAndConfirm(conn, fundTrackerAuth, fundMintIxs, [fundMint]);
+		await sendAndConfirm(conn, poolAuth, fundMintIxs, [fundMint]);
 		console.log('created fund mint');
 	});
 
@@ -103,27 +89,32 @@ describe('basis', () => {
 		await sendAndConfirm(conn, poolAuth, [ix], [basisMint]);
 	});
 
-	it('Initialize Fund Tracker', async () => {
+	it('Add Fund', async () => {
 		const { instructions: ataIxs, key: ataKey } = await createAtaIdempotent(
 			conn,
-			fundTracker,
-			fundTrackerAuth.publicKey,
+			pool,
+			poolAuth.publicKey,
 			fundMint.publicKey
 		);
 		assert(ataKey.equals(fundTrackerToken));
-		// await sendAndConfirm(conn, fundTrackerAuth, ataIxs);
 
+		const params: AddFundParams = {
+			weight: 1,
+		};
 		const ix = await program.methods
-			.initializeFundTracker()
+			.addFund(params)
 			.accounts({
-				authority: fundTrackerAuth.publicKey,
-				payer: fundTrackerAuth.publicKey,
+				authority: poolAuth.publicKey,
+				payer: poolAuth.publicKey,
 				pool,
-				fundTracker,
 				token: fundTrackerToken,
 				mint: fundMint.publicKey,
 			})
 			.instruction();
-		await sendAndConfirm(conn, fundTrackerAuth, [...ataIxs, ix]);
+		await sendAndConfirm(conn, poolAuth, [...ataIxs, ix]);
+
+		const poolAcct: Pool = await program.account.pool.fetch(pool);
+		const fundTrackerAcct: FundTracker = poolAcct.funds[0];
+		assert(fundTrackerAcct.token.equals(fundTrackerToken));
 	});
 });

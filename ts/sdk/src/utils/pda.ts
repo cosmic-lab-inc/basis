@@ -10,23 +10,9 @@ export function getPoolAddressSync(basisMint: PublicKey): PublicKey {
 	)[0];
 }
 
-export function getFundTrackerAddressSync(
+export function getPoolFundTrackerTokenAddressSync(
 	pool: PublicKey,
 	fundMint: PublicKey
 ): PublicKey {
-	return PublicKey.findProgramAddressSync(
-		[
-			Buffer.from(anchor.utils.bytes.utf8.encode('fund_tracker')),
-			pool.toBuffer(),
-			fundMint.toBuffer(),
-		],
-		BASIS_PROGRAM_ID
-	)[0];
-}
-
-export function getFundTrackerTokenAddressSync(
-	fundTracker: PublicKey,
-	fundMint: PublicKey
-): PublicKey {
-	return getAssociatedTokenAddressSync(fundMint, fundTracker, true);
+	return getAssociatedTokenAddressSync(fundMint, pool, true);
 }

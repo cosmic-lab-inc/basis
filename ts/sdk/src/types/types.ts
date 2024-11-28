@@ -5,12 +5,20 @@ export const BASIS_PROGRAM_ID = new PublicKey(
 	'Basis9pRdq5cFHdnML4asQE8oFjRWX7qbL9H5boN91x'
 );
 
+export type FundTracker = {
+	mint: PublicKey;
+	token: PublicKey;
+	initTs: BN;
+	weight: number;
+	padding: number[];
+};
+
 export type Pool = {
 	pubkey: PublicKey;
 	basisMint: PublicKey;
 	usdcMint: PublicKey;
 	authority: PublicKey;
-	funds: PublicKey[];
+	funds: FundTracker[];
 	deposits: BN;
 	supply: BN;
 	exchangeRate: BN;
@@ -21,14 +29,6 @@ export type Pool = {
 	padding: number[];
 };
 
-export type FundTracker = {
-	pubkey: PublicKey;
-	pool: PublicKey;
-	mint: PublicKey;
-	token: PublicKey;
-	authority: PublicKey;
-	initTs: BN;
+export type AddFundParams = {
 	weight: number;
-	bump: number;
-	padding: number[];
 };

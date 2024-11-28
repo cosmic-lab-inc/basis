@@ -22,9 +22,10 @@ pub mod basis {
         instructions::initialize_pool(ctx)
     }
 
-    pub fn initialize_fund_tracker<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializeFundTracker<'info>>,
+    pub fn add_fund<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, AddFund<'info>>,
+        params: AddFundParams,
     ) -> Result<()> {
-        instructions::initialize_fund_tracker(ctx)
+        instructions::add_fund(ctx, params)
     }
 }

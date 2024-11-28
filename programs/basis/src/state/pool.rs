@@ -1,3 +1,5 @@
+use crate::error::{ErrorCode, PoolResult};
+use crate::state::FundTracker;
 use crate::Size;
 use anchor_lang::prelude::*;
 use drift_macros::assert_no_slop;
@@ -16,10 +18,9 @@ pub struct Pool {
     pub usdc_mint: Pubkey,
     /// Authority who can sign to modify this account
     pub authority: Pubkey,
-    /// List of [`FundTracker`] accounts that comprise this pool.
     /// To prevent breaching the maximum remaining accounts per instruction of 32,
     /// the number of funds is limited to 16.
-    pub funds: [Pubkey; 16],
+    pub funds: [FundTracker; 16],
     /// Total USDC deposits in the pool which backs the BASIS token
     pub deposits: u128,
     /// Outstanding supply of the BASIS token
@@ -43,6 +44,33 @@ impl Pool {
 }
 
 impl Size for Pool {
-    const SIZE: usize = 32 * 4 + 32 * 16 + 16 * 3 + 8 * 3 + 1 + 7 + 8;
+    const SIZE: usize = (32 * 4) + (FundTracker::SIZE * 16) + (16 * 3) + (8 * 3) + (1 + 7) + 8;
 }
 const_assert_eq!(Pool::SIZE, std::mem::size_of::<Pool>() + 8);
+
+impl Pool {
+    pub fn add_fund(&mut self, fund_tracker: FundTracker) -> PoolResult<usize> {
+        let new_fund_index = self
+            .funds
+            .iter()
+            .enumerate()
+            .position(|(index, fund)| fund.is_empty())
+            .ok_or(ErrorCode::NoFundTrackersAvailable)?;
+        self.funds[new_fund_index] = fund_tracker;
+        Ok(new_fund_index)
+    }
+
+    pub fn remove_fund(&mut self, fund_index: usize) -> PoolResult<usize> {
+        let existing_fund = self
+            .funds
+            .get(fund_index)
+            .ok_or(FundTracker::default())
+            .map_err(|_| ErrorCode::FundTrackerNotFound)?;
+        if existing_fund.is_empty() {
+            Err(ErrorCode::FundTrackerNotFound.into())
+        } else {
+            self.funds[fund_index] = FundTracker::default();
+            Ok(fund_index)
+        }
+    }
+}
