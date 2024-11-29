@@ -36,4 +36,11 @@ pub mod basis {
     ) -> Result<()> {
         instructions::remove_investment(ctx, params)
     }
+
+    pub fn pool_deposit<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, PoolDeposit<'info>>,
+        params: PoolDepositParams,
+    ) -> Result<()> {
+        instructions::pool_deposit(ctx, params)
+    }
 }

@@ -55,6 +55,7 @@ import {
 } from '@cosmic-lab/data-source';
 import { err, ok, Result } from 'neverthrow';
 import { signatureLink } from '../ts/sdk';
+import { createAtaIdempotent } from './helpers';
 
 async function sendTransactionWithResult(
 	instructions: InstructionReturn[],
@@ -1196,6 +1197,7 @@ export async function bootstrapDevnetInvestor(params: {
 		opts: {
 			commitment: 'confirmed',
 		},
+		authority: driftClientConfig.authority,
 		activeSubAccountId,
 		perpMarketIndexes,
 		spotMarketIndexes,

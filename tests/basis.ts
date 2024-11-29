@@ -23,17 +23,23 @@ import {
 	getVaultAddressSync,
 	getVaultDepositorAddressSync,
 	getVaultProtocolAddressSync,
-	VaultClient, VaultDepositor,
+	VaultClient,
+	VaultDepositor,
 	VaultProtocolParams,
+	Vault,
 } from '@drift-labs/vaults-sdk';
 import { assert } from 'chai';
 import {
 	AddInvestmentParams,
 	Basis,
+	DRIFT_PROGRAM_ID,
 	DRIFT_VAULTS_PROGRAM_ID,
 	getPoolAddressSync,
 	getPoolPayerAddressSync,
+	getPoolPayerUsdcVaultAddressSync,
 	getPoolUsdcVaultAddressSync,
+	Pool,
+	PoolDepositParams,
 	TEST_MANAGER,
 	TEST_USDC_DECIMALS,
 	TEST_USDC_MINT,
@@ -44,6 +50,7 @@ import {
 	createMintIxs,
 	sendAndConfirm,
 	simulate,
+	tokenBalance,
 } from './helpers';
 
 describe('basis', () => {
@@ -80,6 +87,9 @@ describe('basis', () => {
 	let protocol: Keypair;
 	let protocolClient: VaultClient;
 
+	let poolDepositor: Keypair;
+	let poolDepositorUsdcTokenAccount: PublicKey;
+
 	const usdcMint = TEST_USDC_MINT;
 	const usdcMintAuth = TEST_USDC_MINT_AUTHORITY;
 	let solPerpOracle: PublicKey;
@@ -91,15 +101,21 @@ describe('basis', () => {
 	);
 
 	const initialSolPerpPrice = 100;
-	const usdcAmount = new BN(50_000).mul(QUOTE_PRECISION);
+	const usdcUiAmount = 50_000;
+	const usdcAmount = new BN(usdcUiAmount).mul(QUOTE_PRECISION);
 	// const finalSolPerpPrice = initialSolPerpPrice + 10;
 	// const baseAssetAmount = new BN(50).mul(BASE_PRECISION);
 
 	const poolAuth = Keypair.generate();
 	const basisMint = Keypair.generate();
 	const pool = getPoolAddressSync(basisMint.publicKey);
-	const poolPayer = getPoolPayerAddressSync(pool);
+	let poolClient: VaultClient;
 	const poolUsdcVault = getPoolUsdcVaultAddressSync(pool, usdcMint.publicKey);
+	const poolPayer = getPoolPayerAddressSync(pool);
+	const poolPayerUsdcVault = getPoolPayerUsdcVaultAddressSync(
+		poolPayer,
+		usdcMint.publicKey
+	);
 
 	const investor = getVaultDepositorAddressSync(
 		DRIFT_VAULTS_PROGRAM_ID,
@@ -130,6 +146,14 @@ describe('basis', () => {
 				usdcMintAuth.publicKey
 			);
 			await sendAndConfirm(connection, payer, usdcMintIxs, [usdcMint]);
+
+			const poolPayerUsdcVaultIxs = await createAtaIdempotent(
+				connection,
+				poolPayer,
+				payer.publicKey,
+				usdcMint.publicKey
+			);
+			await sendAndConfirm(connection, payer, poolPayerUsdcVaultIxs);
 
 			solPerpOracle = await mockOracle(initialSolPerpPrice);
 
@@ -262,6 +286,49 @@ describe('basis', () => {
 			protocol = bootstrapProtocol.signer;
 			protocolClient = bootstrapProtocol.vaultClient;
 
+			const bootstrapPoolDepositor = await bootstrapSignerClientAndUser({
+				payer: provider,
+				programId: program.programId,
+				usdcMint,
+				usdcMintAuth,
+				usdcAmount,
+				driftClientConfig: {
+					accountSubscription: {
+						type: 'websocket',
+						resubTimeoutMs: 30_000,
+					},
+					opts,
+					activeSubAccountId: 0,
+					perpMarketIndexes,
+					spotMarketIndexes,
+					oracleInfos,
+				},
+			});
+			poolDepositor = bootstrapPoolDepositor.signer;
+			poolDepositorUsdcTokenAccount = bootstrapPoolDepositor.userUSDCAccount;
+
+			const bootstrapPool = await bootstrapSignerClientAndUser({
+				payer: provider,
+				programId: program.programId,
+				usdcMint,
+				usdcMintAuth,
+				usdcAmount,
+				signer: poolAuth,
+				driftClientConfig: {
+					authority: pool,
+					accountSubscription: {
+						type: 'websocket',
+						resubTimeoutMs: 30_000,
+					},
+					opts,
+					activeSubAccountId: 0,
+					perpMarketIndexes,
+					spotMarketIndexes,
+					oracleInfos,
+				},
+			});
+			poolClient = bootstrapPool.vaultClient;
+
 			// start account loader
 			bulkAccountLoader.startPolling();
 			await bulkAccountLoader.load();
@@ -281,8 +348,6 @@ describe('basis', () => {
 		await fillerUser.unsubscribe();
 
 		bulkAccountLoader.stopPolling();
-
-		// process.exit();
 	});
 
 	it('Initialize Vault', async () => {
@@ -374,7 +439,66 @@ describe('basis', () => {
 			})
 			.instruction();
 		await sendAndConfirm(connection, poolAuth, [ix]);
-		const investorAcct: VaultDepositor = await program.account.vaultDepositor.fetch(investor);
+		const investorAcct: VaultDepositor =
+			await program.account.vaultDepositor.fetch(investor);
 		assert(investorAcct.authority.equals(poolPayer));
+	});
+
+	it('Deposit', async () => {
+		const vaultAcct: Vault = await program.account.vault.fetch(protocolVault);
+		const driftSpotMarket = adminClient.getSpotMarketAccount(0);
+		assert.isDefined(driftSpotMarket);
+
+		const poolDepositorUsdcBalance = await tokenBalance(
+			connection,
+			poolDepositorUsdcTokenAccount
+		);
+		assert.strictEqual(poolDepositorUsdcBalance, usdcUiAmount);
+
+		const params: PoolDepositParams = {
+			usdc: usdcAmount,
+		};
+
+		const remainingAccounts = poolClient.driftClient.getRemainingAccounts({
+			userAccounts: [],
+			writableSpotMarketIndexes: [0],
+		});
+		if (vaultAcct.vaultProtocol) {
+			const vaultProtocol = getVaultProtocolAddressSync(
+				managerClient.program.programId,
+				protocolVault
+			);
+			remainingAccounts.push({
+				pubkey: vaultProtocol,
+				isSigner: false,
+				isWritable: true,
+			});
+		}
+
+		const ix = await basisProgram.methods
+			.poolDeposit(params)
+			.accounts({
+				vault: protocolVault,
+				investor,
+				vaultTokenAccount: vaultAcct.tokenAccount,
+				driftUserStats: vaultAcct.userStats,
+				driftUser: vaultAcct.user,
+				driftState: await adminClient.getStatePublicKey(),
+				driftSpotMarketVault: driftSpotMarket.vault,
+				poolDepositorTokenAccount: poolDepositorUsdcTokenAccount,
+				poolDepositor: poolDepositor.publicKey,
+				authority: poolAuth.publicKey,
+				pool,
+				poolPayer,
+				poolPayerTokenAccount: poolPayerUsdcVault,
+				payer: poolAuth.publicKey,
+				driftVaultsProgram: DRIFT_VAULTS_PROGRAM_ID,
+				driftProgram: DRIFT_PROGRAM_ID,
+			})
+			.remainingAccounts(remainingAccounts)
+			.instruction();
+		await sendAndConfirm(connection, poolAuth, [ix], [poolDepositor]);
+		const poolAcct: Pool = await basisProgram.account.pool.fetch(pool);
+		assert(poolAcct.deposits.eq(usdcAmount));
 	});
 });

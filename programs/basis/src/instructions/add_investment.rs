@@ -1,7 +1,7 @@
 use crate::constraints::*;
-use crate::cpis::DriftInitializeInvestor;
+use crate::cpis::DriftVaultsInitializeInvestor;
+use crate::declare_pool_payer_seeds;
 use crate::state::{Investment, Pool};
-use crate::{declare_pool_payer_seeds, declare_pool_seeds};
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use drift_vaults::cpi::accounts::InitializeVaultDepositor;
@@ -51,6 +51,7 @@ pub struct AddInvestment<'info> {
     )]
     pub pool: AccountLoader<'info, Pool>,
 
+    /// PDA signer that pays for transaction fees
     #[account(
         mut,
         seeds = [b"pool_payer", pool.key().as_ref()],
@@ -65,7 +66,7 @@ pub struct AddInvestment<'info> {
     pub drift_vaults_program: Program<'info, DriftVaults>,
 }
 
-impl<'info> DriftInitializeInvestor for Context<'_, '_, '_, 'info, AddInvestment<'info>> {
+impl<'info> DriftVaultsInitializeInvestor for Context<'_, '_, '_, 'info, AddInvestment<'info>> {
     fn initialize_investor(&self) -> Result<()> {
         // transfer lamports from authority to pool, so it can pay for CPI
         let system_program = self.accounts.system_program.to_account_info();
@@ -73,10 +74,10 @@ impl<'info> DriftInitializeInvestor for Context<'_, '_, '_, 'info, AddInvestment
             from: self.accounts.authority.to_account_info(),
             to: self.accounts.pool_payer.to_account_info(),
         };
-        let vault_depositor_rent = Rent::default().minimum_balance(VaultDepositor::SIZE);
+        let lamports = Rent::default().minimum_balance(VaultDepositor::SIZE);
         let transfer_cpi_context = CpiContext::new(system_program, transfer_cpi_accounts);
-        transfer(transfer_cpi_context, vault_depositor_rent)?;
-        msg!("pool_payer funded with lamports: {}", vault_depositor_rent);
+        transfer(transfer_cpi_context, lamports)?;
+        msg!("pool_payer funded with lamports: {}", lamports);
 
         declare_pool_payer_seeds!(self.accounts.pool, self.bumps.pool_payer, seeds);
         let cpi_program = self.accounts.drift_vaults_program.to_account_info().clone();

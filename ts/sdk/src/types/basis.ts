@@ -86,6 +86,7 @@ export type Basis = {
 					name: 'poolPayer';
 					isMut: true;
 					isSigner: false;
+					docs: ['PDA signer that pays for transaction fees'];
 				},
 				{
 					name: 'payer';
@@ -151,6 +152,116 @@ export type Basis = {
 					name: 'params';
 					type: {
 						defined: 'RemoveInvestmentParams';
+					};
+				}
+			];
+		},
+		{
+			name: 'poolDeposit';
+			accounts: [
+				{
+					name: 'vault';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'investor';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'vaultTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftUserStats';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftUser';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftState';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'driftSpotMarketVault';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'poolDepositorTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'poolDepositor';
+					isMut: false;
+					isSigner: true;
+				},
+				{
+					name: 'authority';
+					isMut: false;
+					isSigner: true;
+					docs: ['Authority of [`Pool`]'];
+				},
+				{
+					name: 'pool';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'poolPayer';
+					isMut: true;
+					isSigner: false;
+					docs: ['PDA signer that pays for transaction fees'];
+				},
+				{
+					name: 'poolPayerTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'payer';
+					isMut: true;
+					isSigner: true;
+				},
+				{
+					name: 'rent';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'systemProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'driftVaultsProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'driftProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'tokenProgram';
+					isMut: false;
+					isSigner: false;
+				}
+			];
+			args: [
+				{
+					name: 'params';
+					type: {
+						defined: 'PoolDepositParams';
 					};
 				}
 			];
@@ -268,6 +379,18 @@ export type Basis = {
 			};
 		},
 		{
+			name: 'PoolDepositParams';
+			type: {
+				kind: 'struct';
+				fields: [
+					{
+						name: 'usdc';
+						type: 'u64';
+					}
+				];
+			};
+		},
+		{
 			name: 'RemoveInvestmentParams';
 			type: {
 				kind: 'struct';
@@ -371,6 +494,16 @@ export type Basis = {
 			code: 6006;
 			name: 'BnConversion';
 			msg: 'BnConversion';
+		},
+		{
+			code: 6007;
+			name: 'NoSiblingInstruction';
+			msg: 'NoSiblingInstruction';
+		},
+		{
+			code: 6008;
+			name: 'DepositOverflow';
+			msg: 'DepositOverflow';
 		}
 	];
 };
@@ -463,6 +596,7 @@ export const IDL: Basis = {
 					name: 'poolPayer',
 					isMut: true,
 					isSigner: false,
+					docs: ['PDA signer that pays for transaction fees'],
 				},
 				{
 					name: 'payer',
@@ -528,6 +662,116 @@ export const IDL: Basis = {
 					name: 'params',
 					type: {
 						defined: 'RemoveInvestmentParams',
+					},
+				},
+			],
+		},
+		{
+			name: 'poolDeposit',
+			accounts: [
+				{
+					name: 'vault',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'investor',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'vaultTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftUserStats',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftUser',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftState',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'driftSpotMarketVault',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'poolDepositorTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'poolDepositor',
+					isMut: false,
+					isSigner: true,
+				},
+				{
+					name: 'authority',
+					isMut: false,
+					isSigner: true,
+					docs: ['Authority of [`Pool`]'],
+				},
+				{
+					name: 'pool',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'poolPayer',
+					isMut: true,
+					isSigner: false,
+					docs: ['PDA signer that pays for transaction fees'],
+				},
+				{
+					name: 'poolPayerTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'payer',
+					isMut: true,
+					isSigner: true,
+				},
+				{
+					name: 'rent',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'systemProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'driftVaultsProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'driftProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'tokenProgram',
+					isMut: false,
+					isSigner: false,
+				},
+			],
+			args: [
+				{
+					name: 'params',
+					type: {
+						defined: 'PoolDepositParams',
 					},
 				},
 			],
@@ -645,6 +889,18 @@ export const IDL: Basis = {
 			},
 		},
 		{
+			name: 'PoolDepositParams',
+			type: {
+				kind: 'struct',
+				fields: [
+					{
+						name: 'usdc',
+						type: 'u64',
+					},
+				],
+			},
+		},
+		{
 			name: 'RemoveInvestmentParams',
 			type: {
 				kind: 'struct',
@@ -748,6 +1004,16 @@ export const IDL: Basis = {
 			code: 6006,
 			name: 'BnConversion',
 			msg: 'BnConversion',
+		},
+		{
+			code: 6007,
+			name: 'NoSiblingInstruction',
+			msg: 'NoSiblingInstruction',
+		},
+		{
+			code: 6008,
+			name: 'DepositOverflow',
+			msg: 'DepositOverflow',
 		},
 	],
 };

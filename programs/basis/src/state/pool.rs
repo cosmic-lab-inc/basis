@@ -1,4 +1,5 @@
 use crate::error::{ErrorCode, PoolResult};
+use crate::math::Cast;
 use crate::state::Investment;
 use crate::Size;
 use anchor_lang::prelude::*;
@@ -72,10 +73,18 @@ impl Pool {
             .ok_or(Investment::default())
             .map_err(|_| ErrorCode::InvestmentNotFound)?;
         if existing_investment.is_empty() {
-            Err(ErrorCode::InvestmentNotFound.into())
+            Err(ErrorCode::InvestmentNotFound)
         } else {
             self.investments[index] = Investment::default();
             Ok(index)
         }
+    }
+
+    pub fn deposit(&mut self, amount: u64) -> PoolResult<()> {
+        self.deposits = self
+            .deposits
+            .checked_add(amount.cast()?)
+            .ok_or(ErrorCode::DepositOverflow)?;
+        Ok(())
     }
 }

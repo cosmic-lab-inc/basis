@@ -17,8 +17,9 @@ export type Pool = {
 	pubkey: PublicKey;
 	basisMint: PublicKey;
 	usdcMint: PublicKey;
+	usdcVault: PublicKey;
 	authority: PublicKey;
-	funds: Investment[];
+	investments: Investment[];
 	deposits: BN;
 	supply: BN;
 	exchangeRate: BN;
@@ -35,6 +36,10 @@ export type AddInvestmentParams = {
 
 export type RemoveInvestmentParams = {
 	investmentIndex: number;
+};
+
+export type PoolDepositParams = {
+	usdc: BN;
 };
 
 export class Venue {

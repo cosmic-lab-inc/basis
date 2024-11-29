@@ -26,3 +26,10 @@ export function getPoolUsdcVaultAddressSync(
 ): PublicKey {
 	return getAssociatedTokenAddressSync(usdcMint, pool, true);
 }
+
+export function getPoolPayerUsdcVaultAddressSync(
+	poolPayer: PublicKey,
+	usdcMint: PublicKey
+): PublicKey {
+	return getAssociatedTokenAddressSync(usdcMint, poolPayer, true);
+}
