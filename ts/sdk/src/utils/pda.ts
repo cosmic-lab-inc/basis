@@ -10,9 +10,19 @@ export function getPoolAddressSync(basisMint: PublicKey): PublicKey {
 	)[0];
 }
 
-export function getPoolFundTrackerTokenAddressSync(
+export function getPoolPayerAddressSync(pool: PublicKey): PublicKey {
+	return PublicKey.findProgramAddressSync(
+		[
+			Buffer.from(anchor.utils.bytes.utf8.encode('pool_payer')),
+			pool.toBuffer(),
+		],
+		BASIS_PROGRAM_ID
+	)[0];
+}
+
+export function getPoolUsdcVaultAddressSync(
 	pool: PublicKey,
-	fundMint: PublicKey
+	usdcMint: PublicKey
 ): PublicKey {
-	return getAssociatedTokenAddressSync(fundMint, pool, true);
+	return getAssociatedTokenAddressSync(usdcMint, pool, true);
 }

@@ -22,14 +22,21 @@ macro_rules! validate {
 }
 
 #[macro_export]
-macro_rules! declare_fund_tracker_seeds {
-    ( $fund_tracker_loader:expr, $name: ident ) => {
-        let fund_tracker = $fund_tracker_loader.load()?;
-        let pool = fund_tracker.pool;
-        let fund_token_mint = fund_tracker.fund_token_mint;
-        let bump = fund_tracker.bump;
-        let $name =
-            &[&FundTracker::get_fund_tracker_signer_seeds(&pool, &fund_token_mint, &bump)[..]];
-        drop(fund_tracker);
+macro_rules! declare_pool_seeds {
+    ( $pool_loader:expr, $name: ident ) => {
+        let pool = $pool_loader.load()?;
+        let basis_mint = pool.basis_mint;
+        let bump = pool.bump;
+        let $name = &[&Pool::get_pool_signer_seeds(basis_mint.as_ref(), &bump)[..]];
+        drop(pool);
+    };
+}
+
+#[macro_export]
+macro_rules! declare_pool_payer_seeds {
+    ( $pool_loader:expr, $pool_payer_bump:expr, $name: ident ) => {
+        let pool_key = $pool_loader.key();
+        let bump = $pool_payer_bump;
+        let $name = &[&Pool::get_pool_payer_signer_seeds(pool_key.as_ref(), &bump)[..]];
     };
 }

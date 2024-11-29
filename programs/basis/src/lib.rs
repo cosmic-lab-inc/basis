@@ -5,6 +5,7 @@ mod instructions;
 pub mod macros;
 mod math;
 mod state;
+mod venue;
 
 use anchor_lang::prelude::*;
 use instructions::*;
@@ -22,17 +23,17 @@ pub mod basis {
         instructions::initialize_pool(ctx)
     }
 
-    pub fn add_fund<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, AddFund<'info>>,
-        params: AddFundParams,
+    pub fn add_investment<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, AddInvestment<'info>>,
+        params: AddInvestmentParams,
     ) -> Result<()> {
-        instructions::add_fund(ctx, params)
+        instructions::add_investment(ctx, params)
     }
 
-    pub fn remove_fund<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, RemoveFund<'info>>,
-        params: RemoveFundParams,
+    pub fn remove_investment<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, RemoveInvestment<'info>>,
+        params: RemoveInvestmentParams,
     ) -> Result<()> {
-        instructions::remove_fund(ctx, params)
+        instructions::remove_investment(ctx, params)
     }
 }

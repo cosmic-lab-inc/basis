@@ -14,9 +14,9 @@ pub enum ErrorCode {
     #[msg("UnwrapError")]
     UnwrapError,
     #[msg("NoFundTrackersAvailable")]
-    NoFundTrackersAvailable,
+    NoInvestmentsAvailable,
     #[msg("FundTrackerNotFound")]
-    FundTrackerNotFound,
+    InvestmentNotFound,
     #[msg("BnConversion")]
     BnConversion,
 }

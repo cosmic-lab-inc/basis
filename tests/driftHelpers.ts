@@ -12,18 +12,15 @@ import {
 	TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import {
-	ComputeBudgetProgram,
 	Connection,
 	Keypair,
 	LAMPORTS_PER_SOL,
 	PublicKey,
 	sendAndConfirmTransaction,
-	Signer,
 	SystemProgram,
 	Transaction,
 	TransactionConfirmationStrategy,
 	TransactionError,
-	TransactionInstruction,
 	TransactionSignature,
 } from '@solana/web3.js';
 import { assert } from 'chai';
@@ -57,7 +54,7 @@ import {
 	walletToAsyncSigner,
 } from '@cosmic-lab/data-source';
 import { err, ok, Result } from 'neverthrow';
-import { signatureLink } from '@cosmic-lab/prop-shop-sdk';
+import { signatureLink } from '../ts/sdk';
 
 async function sendTransactionWithResult(
 	instructions: InstructionReturn[],

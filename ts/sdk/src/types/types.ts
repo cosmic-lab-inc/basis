@@ -5,9 +5,9 @@ export const BASIS_PROGRAM_ID = new PublicKey(
 	'Basis9pRdq5cFHdnML4asQE8oFjRWX7qbL9H5boN91x'
 );
 
-export type FundTracker = {
-	mint: PublicKey;
-	token: PublicKey;
+export type Investment = {
+	investor: PublicKey;
+	totalProfit: BN;
 	initTs: BN;
 	weight: number;
 	padding: number[];
@@ -18,7 +18,7 @@ export type Pool = {
 	basisMint: PublicKey;
 	usdcMint: PublicKey;
 	authority: PublicKey;
-	funds: FundTracker[];
+	funds: Investment[];
 	deposits: BN;
 	supply: BN;
 	exchangeRate: BN;
@@ -29,10 +29,15 @@ export type Pool = {
 	padding: number[];
 };
 
-export type AddFundParams = {
+export type AddInvestmentParams = {
 	weight: number;
 };
 
-export type RemoveFundParams = {
-	fundIndex: number;
+export type RemoveInvestmentParams = {
+	investmentIndex: number;
 };
+
+export class Venue {
+	static readonly DRIFT = { drift: {} };
+	static readonly PHOENIX = { phoenix: {} };
+}

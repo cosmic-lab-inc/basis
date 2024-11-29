@@ -27,13 +27,7 @@ pnpm idl || exit 1
 
 pnpm dep:all || exit 1
 
-cd ts/sdk || exit 1
-
-pnpm i || exit 1
-
 pnpm build || exit 1
-
-home || exit 1
 
 pnpm lint || exit 1
 

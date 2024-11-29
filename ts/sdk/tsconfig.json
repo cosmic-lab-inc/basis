@@ -1,23 +1,31 @@
 {
 	"compilerOptions": {
-		"module": "commonjs",
-		"target": "ES2019",
-		"esModuleInterop": true,
-		"declaration": true,
-		"outDir": "./lib",
-		"rootDirs": [
-			"src",
-			"cli"
-		],
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
+		"allowJs": true,
+		"checkJs": true,
 		"strict": true,
+		"target": "es2020",
+		"module": "commonjs",
+		"moduleResolution": "node",
+		"noEmit": false,
+		"esModuleInterop": true,
+		"resolveJsonModule": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"declaration": true,
+		"sourceMap": true,
+		"skipLibCheck": true,
+		"strictNullChecks": true,
+		"strictPropertyInitialization": true,
+		"rootDirs": [
+			"src"
+		],
+		"outDir": "./dist"
 	},
 	"include": [
-		"src/**/*"
+		"src/**/*.ts"
 	],
 	"exclude": [
 		"node_modules",
-		"tests"
+		"dist"
 	]
 }

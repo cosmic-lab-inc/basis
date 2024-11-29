@@ -2,7 +2,7 @@ use crate::state::Pool;
 use crate::Size;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{Mint, Token};
+use anchor_spl::token::{Mint, Token, TokenAccount};
 
 pub fn initialize_pool<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializePool<'info>>,
@@ -14,6 +14,7 @@ pub fn initialize_pool<'c: 'info, 'info>(
     pool.authority = *ctx.accounts.authority.key;
     pool.basis_mint = *ctx.accounts.basis_mint.to_account_info().key;
     pool.usdc_mint = *ctx.accounts.usdc_mint.to_account_info().key;
+    pool.usdc_vault = *ctx.accounts.usdc_vault.to_account_info().key;
     pool.init_ts = Clock::get()?.unix_timestamp;
     pool.bump = bump;
 
@@ -42,6 +43,12 @@ pub struct InitializePool<'info> {
     )]
     pub basis_mint: Box<Account<'info, Mint>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
+
+    #[account(
+        token::mint = usdc_mint,
+        token::authority = pool
+    )]
+    pub usdc_vault: Account<'info, TokenAccount>,
 
     #[account(mut)]
     pub payer: Signer<'info>,

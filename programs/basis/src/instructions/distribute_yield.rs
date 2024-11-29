@@ -1,6 +1,7 @@
 use crate::constraints::*;
 use crate::state::Pool;
 use anchor_lang::prelude::*;
+use drift_vaults::state::VaultDepositor;
 
 pub fn distribute_yield<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, DistributeYield<'info>>,
@@ -19,6 +20,11 @@ pub struct DistributeYield<'info> {
         constraint = is_authority_for_pool(&pool, &authority)?,
     )]
     pub pool: AccountLoader<'info, Pool>,
+
+    #[account(
+        constraint = is_authority_for_investor(&investor, &pool.key())?,
+    )]
+    pub investor: AccountLoader<'info, VaultDepositor>,
 
     #[account(mut)]
     pub payer: Signer<'info>,

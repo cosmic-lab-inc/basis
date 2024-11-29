@@ -1,7 +1,8 @@
-pub mod fund_tracker;
+pub mod investment;
 pub mod pool;
+mod programs;
 mod traits;
 
-pub use fund_tracker::*;
+pub use investment::*;
 pub use pool::*;
 pub use traits::*;

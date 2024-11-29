@@ -1,14 +1,14 @@
 {
   "name": "@cosmic-lab/basis-sdk",
   "version": "0.1.7",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "directories": {
-    "lib": "lib"
+    "lib": "dist"
   },
   "scripts": {
-    "clean": "rm -rf lib && rm -rf node_modules",
-    "build": "rm -rf lib && tsc"
+    "clean": "yes | rm -rf dist && rm -rf node_modules",
+    "build": "tsc"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.28.0",
@@ -21,7 +21,8 @@
   "devDependencies": {
     "rpc-websockets": "7.10.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.1.6"
+    "typescript": "^5.1.6",
+    "@types/node": "^20.8.7"
   },
   "resolutions": {
     "rpc-websockets": "7.10.0",

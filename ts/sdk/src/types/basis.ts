@@ -27,6 +27,11 @@ export type Basis = {
 					isSigner: false;
 				},
 				{
+					name: 'usdcVault';
+					isMut: false;
+					isSigner: false;
+				},
+				{
 					name: 'payer';
 					isMut: true;
 					isSigner: true;
@@ -55,8 +60,18 @@ export type Basis = {
 			args: [];
 		},
 		{
-			name: 'addFund';
+			name: 'addInvestment';
 			accounts: [
+				{
+					name: 'vault';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'investor';
+					isMut: true;
+					isSigner: false;
+				},
 				{
 					name: 'authority';
 					isMut: false;
@@ -68,13 +83,8 @@ export type Basis = {
 					isSigner: false;
 				},
 				{
-					name: 'token';
+					name: 'poolPayer';
 					isMut: true;
-					isSigner: false;
-				},
-				{
-					name: 'mint';
-					isMut: false;
 					isSigner: false;
 				},
 				{
@@ -93,7 +103,7 @@ export type Basis = {
 					isSigner: false;
 				},
 				{
-					name: 'tokenProgram';
+					name: 'driftVaultsProgram';
 					isMut: false;
 					isSigner: false;
 				}
@@ -102,13 +112,13 @@ export type Basis = {
 				{
 					name: 'params';
 					type: {
-						defined: 'AddFundParams';
+						defined: 'AddInvestmentParams';
 					};
 				}
 			];
 		},
 		{
-			name: 'removeFund';
+			name: 'removeInvestment';
 			accounts: [
 				{
 					name: 'authority';
@@ -140,7 +150,7 @@ export type Basis = {
 				{
 					name: 'params';
 					type: {
-						defined: 'RemoveFundParams';
+						defined: 'RemoveInvestmentParams';
 					};
 				}
 			];
@@ -172,12 +182,19 @@ export type Basis = {
 						type: 'publicKey';
 					},
 					{
+						name: 'usdcVault';
+						docs: [
+							'Token account to receive USDC when removing a fund, distributing yield, or rebalancing'
+						];
+						type: 'publicKey';
+					},
+					{
 						name: 'authority';
 						docs: ['Authority who can sign to modify this account'];
 						type: 'publicKey';
 					},
 					{
-						name: 'funds';
+						name: 'investments';
 						docs: [
 							'To prevent breaching the maximum remaining accounts per instruction of 32,',
 							'the number of funds is limited to 16.'
@@ -185,7 +202,7 @@ export type Basis = {
 						type: {
 							array: [
 								{
-									defined: 'FundTracker';
+									defined: 'Investment';
 								},
 								16
 							];
@@ -210,12 +227,12 @@ export type Basis = {
 					},
 					{
 						name: 'lastDistributionTs';
-						docs: ['Last time yield was distributed from each [`FundTracker`]'];
+						docs: ['Last time yield was distributed from each [`Investment`]'];
 						type: 'u64';
 					},
 					{
 						name: 'lastRebalanceTs';
-						docs: ['Last time the [`FundTracker`] weights were rebalanced'];
+						docs: ['Last time the [`Investment`] weights were rebalanced'];
 						type: 'u64';
 					},
 					{
@@ -239,7 +256,7 @@ export type Basis = {
 	];
 	types: [
 		{
-			name: 'AddFundParams';
+			name: 'AddInvestmentParams';
 			type: {
 				kind: 'struct';
 				fields: [
@@ -251,41 +268,47 @@ export type Basis = {
 			};
 		},
 		{
-			name: 'RemoveFundParams';
+			name: 'RemoveInvestmentParams';
 			type: {
 				kind: 'struct';
 				fields: [
 					{
-						name: 'fundIndex';
+						name: 'investmentIndex';
 						type: 'u8';
 					}
 				];
 			};
 		},
 		{
-			name: 'FundTracker';
+			name: 'Investment';
 			type: {
 				kind: 'struct';
 				fields: [
 					{
-						name: 'mint';
-						docs: ["Mint of fund's tokenized shares"];
+						name: 'investor';
+						docs: [
+							'PDA of [`VaultDepositor`] account which owns shares in a [`Vault`]'
+						];
 						type: 'publicKey';
 					},
 					{
-						name: 'token';
-						docs: ['Authority is [`Pool`] PDA, mint is [`FundTracker.mint`]'];
-						type: 'publicKey';
+						name: 'totalProfit';
+						docs: [
+							'Total USDC profit distributed to the pool by this investment',
+							'This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6'
+						];
+						type: 'u128';
 					},
 					{
 						name: 'initTs';
-						docs: ['Time this account was initialized'];
+						docs: ['Time this investment was initialized'];
 						type: 'i64';
 					},
 					{
 						name: 'weight';
 						docs: [
-							"Basis points of the fund's weight in the pool (10_000 = 100%, 1 = 0.01%)"
+							"Basis points of the investment's weight in the pool (10_000 = 100%, 1 = 0.01%)",
+							"This is used during rebalancing to determine how much of the pool's funds to allocate to this investment"
 						];
 						type: 'u32';
 					},
@@ -294,6 +317,20 @@ export type Basis = {
 						type: {
 							array: ['u8', 4];
 						};
+					}
+				];
+			};
+		},
+		{
+			name: 'VenueType';
+			type: {
+				kind: 'enum';
+				variants: [
+					{
+						name: 'Drift';
+					},
+					{
+						name: 'Phoenix';
 					}
 				];
 			};
@@ -322,12 +359,12 @@ export type Basis = {
 		},
 		{
 			code: 6004;
-			name: 'NoFundTrackersAvailable';
+			name: 'NoInvestmentsAvailable';
 			msg: 'NoFundTrackersAvailable';
 		},
 		{
 			code: 6005;
-			name: 'FundTrackerNotFound';
+			name: 'InvestmentNotFound';
 			msg: 'FundTrackerNotFound';
 		},
 		{
@@ -367,6 +404,11 @@ export const IDL: Basis = {
 					isSigner: false,
 				},
 				{
+					name: 'usdcVault',
+					isMut: false,
+					isSigner: false,
+				},
+				{
 					name: 'payer',
 					isMut: true,
 					isSigner: true,
@@ -395,8 +437,18 @@ export const IDL: Basis = {
 			args: [],
 		},
 		{
-			name: 'addFund',
+			name: 'addInvestment',
 			accounts: [
+				{
+					name: 'vault',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'investor',
+					isMut: true,
+					isSigner: false,
+				},
 				{
 					name: 'authority',
 					isMut: false,
@@ -408,13 +460,8 @@ export const IDL: Basis = {
 					isSigner: false,
 				},
 				{
-					name: 'token',
+					name: 'poolPayer',
 					isMut: true,
-					isSigner: false,
-				},
-				{
-					name: 'mint',
-					isMut: false,
 					isSigner: false,
 				},
 				{
@@ -433,7 +480,7 @@ export const IDL: Basis = {
 					isSigner: false,
 				},
 				{
-					name: 'tokenProgram',
+					name: 'driftVaultsProgram',
 					isMut: false,
 					isSigner: false,
 				},
@@ -442,13 +489,13 @@ export const IDL: Basis = {
 				{
 					name: 'params',
 					type: {
-						defined: 'AddFundParams',
+						defined: 'AddInvestmentParams',
 					},
 				},
 			],
 		},
 		{
-			name: 'removeFund',
+			name: 'removeInvestment',
 			accounts: [
 				{
 					name: 'authority',
@@ -480,7 +527,7 @@ export const IDL: Basis = {
 				{
 					name: 'params',
 					type: {
-						defined: 'RemoveFundParams',
+						defined: 'RemoveInvestmentParams',
 					},
 				},
 			],
@@ -512,12 +559,19 @@ export const IDL: Basis = {
 						type: 'publicKey',
 					},
 					{
+						name: 'usdcVault',
+						docs: [
+							'Token account to receive USDC when removing a fund, distributing yield, or rebalancing',
+						],
+						type: 'publicKey',
+					},
+					{
 						name: 'authority',
 						docs: ['Authority who can sign to modify this account'],
 						type: 'publicKey',
 					},
 					{
-						name: 'funds',
+						name: 'investments',
 						docs: [
 							'To prevent breaching the maximum remaining accounts per instruction of 32,',
 							'the number of funds is limited to 16.',
@@ -525,7 +579,7 @@ export const IDL: Basis = {
 						type: {
 							array: [
 								{
-									defined: 'FundTracker',
+									defined: 'Investment',
 								},
 								16,
 							],
@@ -550,12 +604,12 @@ export const IDL: Basis = {
 					},
 					{
 						name: 'lastDistributionTs',
-						docs: ['Last time yield was distributed from each [`FundTracker`]'],
+						docs: ['Last time yield was distributed from each [`Investment`]'],
 						type: 'u64',
 					},
 					{
 						name: 'lastRebalanceTs',
-						docs: ['Last time the [`FundTracker`] weights were rebalanced'],
+						docs: ['Last time the [`Investment`] weights were rebalanced'],
 						type: 'u64',
 					},
 					{
@@ -579,7 +633,7 @@ export const IDL: Basis = {
 	],
 	types: [
 		{
-			name: 'AddFundParams',
+			name: 'AddInvestmentParams',
 			type: {
 				kind: 'struct',
 				fields: [
@@ -591,41 +645,47 @@ export const IDL: Basis = {
 			},
 		},
 		{
-			name: 'RemoveFundParams',
+			name: 'RemoveInvestmentParams',
 			type: {
 				kind: 'struct',
 				fields: [
 					{
-						name: 'fundIndex',
+						name: 'investmentIndex',
 						type: 'u8',
 					},
 				],
 			},
 		},
 		{
-			name: 'FundTracker',
+			name: 'Investment',
 			type: {
 				kind: 'struct',
 				fields: [
 					{
-						name: 'mint',
-						docs: ["Mint of fund's tokenized shares"],
+						name: 'investor',
+						docs: [
+							'PDA of [`VaultDepositor`] account which owns shares in a [`Vault`]',
+						],
 						type: 'publicKey',
 					},
 					{
-						name: 'token',
-						docs: ['Authority is [`Pool`] PDA, mint is [`FundTracker.mint`]'],
-						type: 'publicKey',
+						name: 'totalProfit',
+						docs: [
+							'Total USDC profit distributed to the pool by this investment',
+							'This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6',
+						],
+						type: 'u128',
 					},
 					{
 						name: 'initTs',
-						docs: ['Time this account was initialized'],
+						docs: ['Time this investment was initialized'],
 						type: 'i64',
 					},
 					{
 						name: 'weight',
 						docs: [
-							"Basis points of the fund's weight in the pool (10_000 = 100%, 1 = 0.01%)",
+							"Basis points of the investment's weight in the pool (10_000 = 100%, 1 = 0.01%)",
+							"This is used during rebalancing to determine how much of the pool's funds to allocate to this investment",
 						],
 						type: 'u32',
 					},
@@ -634,6 +694,20 @@ export const IDL: Basis = {
 						type: {
 							array: ['u8', 4],
 						},
+					},
+				],
+			},
+		},
+		{
+			name: 'VenueType',
+			type: {
+				kind: 'enum',
+				variants: [
+					{
+						name: 'Drift',
+					},
+					{
+						name: 'Phoenix',
 					},
 				],
 			},
@@ -662,12 +736,12 @@ export const IDL: Basis = {
 		},
 		{
 			code: 6004,
-			name: 'NoFundTrackersAvailable',
+			name: 'NoInvestmentsAvailable',
 			msg: 'NoFundTrackersAvailable',
 		},
 		{
 			code: 6005,
-			name: 'FundTrackerNotFound',
+			name: 'InvestmentNotFound',
 			msg: 'FundTrackerNotFound',
 		},
 		{
