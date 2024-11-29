@@ -1,5 +1,5 @@
 use crate::error::{ErrorCode, PoolResult};
-use crate::math::Cast;
+use crate::math::{Cast, SafeMath};
 use crate::state::Investment;
 use crate::Size;
 use anchor_lang::prelude::*;
@@ -81,10 +81,9 @@ impl Pool {
     }
 
     pub fn deposit(&mut self, amount: u64) -> PoolResult<()> {
-        self.deposits = self
-            .deposits
-            .checked_add(amount.cast()?)
-            .ok_or(ErrorCode::DepositOverflow)?;
+        self.deposits = self.deposits.safe_add(amount.cast()?)?;
+        self.supply = self.supply.safe_add(amount.cast()?)?;
+        self.exchange_rate = self.deposits.safe_div(self.supply)?;
         Ok(())
     }
 }

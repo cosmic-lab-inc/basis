@@ -1086,67 +1086,71 @@ export async function bootstrapSignerClientAndUser(params: {
 	} else {
 		signer = params.signer;
 	}
-	await payer.connection.requestAirdrop(signer.publicKey, LAMPORTS_PER_SOL);
-	await sleep(1000);
+	try {
+		await payer.connection.requestAirdrop(signer.publicKey, LAMPORTS_PER_SOL);
+		await sleep(1000);
 
-	const driftClient = new DriftClient({
-		connection: payer.connection,
-		wallet: new Wallet(signer),
-		opts: {
-			commitment: 'confirmed',
-		},
-		activeSubAccountId,
-		perpMarketIndexes,
-		spotMarketIndexes,
-		oracleInfos,
-		accountSubscription,
-	});
-	const provider = new anchor.AnchorProvider(
-		payer.connection,
-		new anchor.Wallet(signer),
-		opts ?? {
-			commitment: 'confirmed',
-		}
-	);
-	const program = new Program(IDL, programId, provider);
-	const vaultClient = new VaultClient({
-		// @ts-ignore
-		driftClient,
-		program,
-		cliMode: vaultClientCliMode ?? true,
-	});
-	const userUSDCAccount = await mockUserUSDCAssociatedTokenAccount(
-		usdcMint,
-		usdcMintAuth,
-		usdcAmount,
-		payer,
-		signer.publicKey
-	);
-
-	await driftClient.subscribe();
-	if (depositCollateral) {
-		await driftClient.initializeUserAccountAndDepositCollateral(
-			usdcAmount,
-			userUSDCAccount,
-			0,
-			activeSubAccountId
+		const driftClient = new DriftClient({
+			connection: payer.connection,
+			wallet: new Wallet(signer),
+			opts: {
+				commitment: 'confirmed',
+			},
+			activeSubAccountId,
+			perpMarketIndexes,
+			spotMarketIndexes,
+			oracleInfos,
+			accountSubscription,
+		});
+		const provider = new anchor.AnchorProvider(
+			payer.connection,
+			new anchor.Wallet(signer),
+			opts ?? {
+				commitment: 'confirmed',
+			}
 		);
-	} else {
-		await driftClient.initializeUserAccount(activeSubAccountId ?? 0);
+		const program = new Program(IDL, programId, provider);
+		const vaultClient = new VaultClient({
+			// @ts-ignore
+			driftClient,
+			program,
+			cliMode: vaultClientCliMode ?? true,
+		});
+		const userUSDCAccount = await mockUserUSDCAssociatedTokenAccount(
+			usdcMint,
+			usdcMintAuth,
+			usdcAmount,
+			payer,
+			signer.publicKey
+		);
+
+		await driftClient.subscribe();
+		if (depositCollateral) {
+			await driftClient.initializeUserAccountAndDepositCollateral(
+				usdcAmount,
+				userUSDCAccount,
+				0,
+				activeSubAccountId
+			);
+		} else {
+			await driftClient.initializeUserAccount(activeSubAccountId ?? 0);
+		}
+		const user = new User({
+			driftClient,
+			userAccountPublicKey: await driftClient.getUserAccountPublicKey(),
+		});
+		await user.subscribe();
+		return {
+			signer,
+			user,
+			userUSDCAccount,
+			driftClient,
+			vaultClient,
+			provider,
+		};
+	} catch (e) {
+		throw new Error(e);
 	}
-	const user = new User({
-		driftClient,
-		userAccountPublicKey: await driftClient.getUserAccountPublicKey(),
-	});
-	await user.subscribe();
-	return {
-		signer,
-		user,
-		userUSDCAccount,
-		driftClient,
-		vaultClient,
-		provider,
-	};
 }
 
 export async function bootstrapDevnetInvestor(params: {

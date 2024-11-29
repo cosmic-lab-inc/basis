@@ -21,8 +21,6 @@ pub enum ErrorCode {
     BnConversion,
     #[msg("NoSiblingInstruction")]
     NoSiblingInstruction,
-    #[msg("DepositOverflow")]
-    DepositOverflow,
 }
 
 #[macro_export]

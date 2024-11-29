@@ -11,3 +11,7 @@ pub trait DriftVaultsInitializeInvestor {
 pub trait DriftVaultsDeposit {
     fn deposit(&self, usdc: u64) -> Result<()>;
 }
+
+pub trait MintBasis {
+    fn mint(&self, usdc: u64) -> Result<()>;
+}

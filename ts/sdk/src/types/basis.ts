@@ -195,14 +195,24 @@ export type Basis = {
 					isSigner: false;
 				},
 				{
-					name: 'poolDepositorTokenAccount';
+					name: 'poolDepositor';
+					isMut: false;
+					isSigner: true;
+				},
+				{
+					name: 'poolDepositorUsdcTokenAccount';
 					isMut: true;
 					isSigner: false;
 				},
 				{
-					name: 'poolDepositor';
-					isMut: false;
-					isSigner: true;
+					name: 'poolDepositorBasisTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'basisMint';
+					isMut: true;
+					isSigner: false;
 				},
 				{
 					name: 'authority';
@@ -222,7 +232,7 @@ export type Basis = {
 					docs: ['PDA signer that pays for transaction fees'];
 				},
 				{
-					name: 'poolPayerTokenAccount';
+					name: 'poolPayerUsdcTokenAccount';
 					isMut: true;
 					isSigner: false;
 				},
@@ -499,11 +509,6 @@ export type Basis = {
 			code: 6007;
 			name: 'NoSiblingInstruction';
 			msg: 'NoSiblingInstruction';
-		},
-		{
-			code: 6008;
-			name: 'DepositOverflow';
-			msg: 'DepositOverflow';
 		}
 	];
 };
@@ -705,14 +710,24 @@ export const IDL: Basis = {
 					isSigner: false,
 				},
 				{
-					name: 'poolDepositorTokenAccount',
+					name: 'poolDepositor',
+					isMut: false,
+					isSigner: true,
+				},
+				{
+					name: 'poolDepositorUsdcTokenAccount',
 					isMut: true,
 					isSigner: false,
 				},
 				{
-					name: 'poolDepositor',
-					isMut: false,
-					isSigner: true,
+					name: 'poolDepositorBasisTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'basisMint',
+					isMut: true,
+					isSigner: false,
 				},
 				{
 					name: 'authority',
@@ -732,7 +747,7 @@ export const IDL: Basis = {
 					docs: ['PDA signer that pays for transaction fees'],
 				},
 				{
-					name: 'poolPayerTokenAccount',
+					name: 'poolPayerUsdcTokenAccount',
 					isMut: true,
 					isSigner: false,
 				},
@@ -1009,11 +1024,6 @@ export const IDL: Basis = {
 			code: 6007,
 			name: 'NoSiblingInstruction',
 			msg: 'NoSiblingInstruction',
-		},
-		{
-			code: 6008,
-			name: 'DepositOverflow',
-			msg: 'DepositOverflow',
 		},
 	],
 };

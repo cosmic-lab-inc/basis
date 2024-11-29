@@ -49,9 +49,9 @@ import {
 	createAtaIdempotent,
 	createMintIxs,
 	sendAndConfirm,
-	simulate,
 	tokenBalance,
 } from './helpers';
+import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 
 describe('basis', () => {
 	const opts: ConfirmOptions = {
@@ -89,6 +89,7 @@ describe('basis', () => {
 
 	let poolDepositor: Keypair;
 	let poolDepositorUsdcTokenAccount: PublicKey;
+	let poolDepositorBasisTokenAccount: PublicKey;
 
 	const usdcMint = TEST_USDC_MINT;
 	const usdcMintAuth = TEST_USDC_MINT_AUTHORITY;
@@ -124,217 +125,217 @@ describe('basis', () => {
 	);
 
 	before(async () => {
-		try {
-			const poolAuthAirdropSig = await connection.requestAirdrop(
-				poolAuth.publicKey,
-				LAMPORTS_PER_SOL * 10
+		const poolAuthAirdropSig = await connection.requestAirdrop(
+			poolAuth.publicKey,
+			LAMPORTS_PER_SOL * 10
+		);
+		const poolAuthConfirmAirdrop = (
+			await connection.confirmTransaction(poolAuthAirdropSig)
+		).value;
+		if (poolAuthConfirmAirdrop.err) {
+			throw new Error(
+				`Failed to confirm airdrop for poolAuth: ${poolAuthConfirmAirdrop.err}`
 			);
-			const poolAuthConfirmAirdrop = (
-				await connection.confirmTransaction(poolAuthAirdropSig)
-			).value;
-			if (poolAuthConfirmAirdrop.err) {
-				throw new Error(
-					`Failed to confirm airdrop for poolAuth: ${poolAuthConfirmAirdrop.err}`
-				);
-			}
+		}
 
-			const usdcMintIxs = await createMintIxs(
-				connection,
-				payer.publicKey,
-				usdcMint,
-				TEST_USDC_DECIMALS,
-				usdcMintAuth.publicKey
-			);
-			await sendAndConfirm(connection, payer, usdcMintIxs, [usdcMint]);
+		const usdcMintIxs = await createMintIxs(
+			connection,
+			payer.publicKey,
+			usdcMint,
+			TEST_USDC_DECIMALS,
+			usdcMintAuth.publicKey
+		);
+		await sendAndConfirm(connection, payer, usdcMintIxs, [usdcMint]);
 
-			const poolPayerUsdcVaultIxs = await createAtaIdempotent(
-				connection,
-				poolPayer,
-				payer.publicKey,
-				usdcMint.publicKey
-			);
-			await sendAndConfirm(connection, payer, poolPayerUsdcVaultIxs);
+		const poolPayerUsdcVaultIxs = await createAtaIdempotent(
+			connection,
+			poolPayer,
+			payer.publicKey,
+			usdcMint.publicKey
+		);
+		await sendAndConfirm(connection, payer, poolPayerUsdcVaultIxs);
 
-			solPerpOracle = await mockOracle(initialSolPerpPrice);
+		solPerpOracle = await mockOracle(initialSolPerpPrice);
 
-			const perpMarketIndexes = [0];
-			const spotMarketIndexes = [0];
-			const oracleInfos = [
-				{ publicKey: solPerpOracle, source: OracleSource.PYTH },
-			];
+		const perpMarketIndexes = [0];
+		const spotMarketIndexes = [0];
+		const oracleInfos = [
+			{ publicKey: solPerpOracle, source: OracleSource.PYTH },
+		];
 
-			adminClient = new AdminClient({
-				connection,
-				wallet: provider.wallet,
-				opts: {
-					commitment: 'confirmed',
-				},
-				activeSubAccountId: 0,
-				perpMarketIndexes,
-				spotMarketIndexes,
-				oracleInfos,
+		adminClient = new AdminClient({
+			connection,
+			wallet: provider.wallet,
+			opts: {
+				commitment: 'confirmed',
+			},
+			activeSubAccountId: 0,
+			perpMarketIndexes,
+			spotMarketIndexes,
+			oracleInfos,
+			accountSubscription: {
+				type: 'websocket',
+				resubTimeoutMs: 30_000,
+			},
+		});
+
+		await adminClient.initialize(usdcMint.publicKey, true);
+		await adminClient.subscribe();
+		await initializeQuoteSpotMarket(adminClient, usdcMint.publicKey);
+
+		const mantissaSqrtScale = new BN(100_000);
+		await adminClient.initializePerpMarket(
+			0,
+			solPerpOracle,
+			new BN(5 * 10 ** 13).mul(mantissaSqrtScale),
+			new BN(5 * 10 ** 13).mul(mantissaSqrtScale),
+			new BN(0),
+			new BN(initialSolPerpPrice).mul(PEG_PRECISION)
+		);
+		await adminClient.updatePerpAuctionDuration(new BN(0));
+		await adminClient.updatePerpMarketCurveUpdateIntensity(0, 100);
+
+		// init vault manager
+		const bootstrapManager = await bootstrapSignerClientAndUser({
+			payer: provider,
+			programId: program.programId,
+			usdcMint,
+			usdcMintAuth,
+			usdcAmount,
+			signer: manager,
+			depositCollateral: false,
+			driftClientConfig: {
 				accountSubscription: {
 					type: 'websocket',
 					resubTimeoutMs: 30_000,
 				},
-			});
+				opts,
+				activeSubAccountId: 0,
+				perpMarketIndexes,
+				spotMarketIndexes,
+				oracleInfos,
+			},
+		});
+		managerClient = bootstrapManager.vaultClient;
+		managerUser = bootstrapManager.user;
 
-			await adminClient.initialize(usdcMint.publicKey, true);
-			await adminClient.subscribe();
-			await initializeQuoteSpotMarket(adminClient, usdcMint.publicKey);
-
-			const mantissaSqrtScale = new BN(100_000);
-			await adminClient.initializePerpMarket(
-				0,
-				solPerpOracle,
-				new BN(5 * 10 ** 13).mul(mantissaSqrtScale),
-				new BN(5 * 10 ** 13).mul(mantissaSqrtScale),
-				new BN(0),
-				new BN(initialSolPerpPrice).mul(PEG_PRECISION)
-			);
-			await adminClient.updatePerpAuctionDuration(new BN(0));
-			await adminClient.updatePerpMarketCurveUpdateIntensity(0, 100);
-
-			// init vault manager
-			const bootstrapManager = await bootstrapSignerClientAndUser({
-				payer: provider,
-				programId: program.programId,
-				usdcMint,
-				usdcMintAuth,
-				usdcAmount,
-				signer: manager,
-				depositCollateral: false,
-				driftClientConfig: {
-					accountSubscription: {
-						type: 'websocket',
-						resubTimeoutMs: 30_000,
-					},
-					opts,
-					activeSubAccountId: 0,
-					perpMarketIndexes,
-					spotMarketIndexes,
-					oracleInfos,
+		// init delegate who trades with vault funds
+		const bootstrapDelegate = await bootstrapSignerClientAndUser({
+			payer: provider,
+			programId: program.programId,
+			usdcMint,
+			usdcMintAuth,
+			usdcAmount,
+			driftClientConfig: {
+				accountSubscription: {
+					type: 'websocket',
+					resubTimeoutMs: 30_000,
 				},
-			});
-			managerClient = bootstrapManager.vaultClient;
-			managerUser = bootstrapManager.user;
+				opts,
+				activeSubAccountId: 0,
+				perpMarketIndexes,
+				spotMarketIndexes,
+				oracleInfos,
+			},
+		});
+		delegate = bootstrapDelegate.signer;
+		delegateClient = bootstrapDelegate.vaultClient;
 
-			// init delegate who trades with vault funds
-			const bootstrapDelegate = await bootstrapSignerClientAndUser({
-				payer: provider,
-				programId: program.programId,
-				usdcMint,
-				usdcMintAuth,
-				usdcAmount,
-				driftClientConfig: {
-					accountSubscription: {
-						type: 'websocket',
-						resubTimeoutMs: 30_000,
-					},
-					opts,
-					activeSubAccountId: 0,
-					perpMarketIndexes,
-					spotMarketIndexes,
-					oracleInfos,
+		// init a market filler for manager to trade against
+		const bootstrapFiller = await bootstrapSignerClientAndUser({
+			payer: provider,
+			programId: program.programId,
+			usdcMint,
+			usdcMintAuth,
+			usdcAmount,
+			depositCollateral: true,
+			driftClientConfig: {
+				accountSubscription: {
+					type: 'websocket',
+					resubTimeoutMs: 30_000,
 				},
-			});
-			delegate = bootstrapDelegate.signer;
-			delegateClient = bootstrapDelegate.vaultClient;
+				opts,
+				activeSubAccountId: 0,
+				perpMarketIndexes,
+				spotMarketIndexes,
+				oracleInfos,
+			},
+		});
+		fillerClient = bootstrapFiller.vaultClient;
+		fillerUser = bootstrapFiller.user;
 
-			// init a market filler for manager to trade against
-			const bootstrapFiller = await bootstrapSignerClientAndUser({
-				payer: provider,
-				programId: program.programId,
-				usdcMint,
-				usdcMintAuth,
-				usdcAmount,
-				depositCollateral: true,
-				driftClientConfig: {
-					accountSubscription: {
-						type: 'websocket',
-						resubTimeoutMs: 30_000,
-					},
-					opts,
-					activeSubAccountId: 0,
-					perpMarketIndexes,
-					spotMarketIndexes,
-					oracleInfos,
+		// init protocol
+		const bootstrapProtocol = await bootstrapSignerClientAndUser({
+			payer: provider,
+			programId: program.programId,
+			usdcMint,
+			usdcMintAuth,
+			usdcAmount,
+			driftClientConfig: {
+				accountSubscription: {
+					type: 'websocket',
+					resubTimeoutMs: 30_000,
 				},
-			});
-			fillerClient = bootstrapFiller.vaultClient;
-			fillerUser = bootstrapFiller.user;
+				opts,
+				activeSubAccountId: 0,
+				perpMarketIndexes,
+				spotMarketIndexes,
+				oracleInfos,
+			},
+		});
+		protocol = bootstrapProtocol.signer;
+		protocolClient = bootstrapProtocol.vaultClient;
 
-			// init protocol
-			const bootstrapProtocol = await bootstrapSignerClientAndUser({
-				payer: provider,
-				programId: program.programId,
-				usdcMint,
-				usdcMintAuth,
-				usdcAmount,
-				driftClientConfig: {
-					accountSubscription: {
-						type: 'websocket',
-						resubTimeoutMs: 30_000,
-					},
-					opts,
-					activeSubAccountId: 0,
-					perpMarketIndexes,
-					spotMarketIndexes,
-					oracleInfos,
+		const bootstrapPoolDepositor = await bootstrapSignerClientAndUser({
+			payer: provider,
+			programId: program.programId,
+			usdcMint,
+			usdcMintAuth,
+			usdcAmount,
+			driftClientConfig: {
+				accountSubscription: {
+					type: 'websocket',
+					resubTimeoutMs: 30_000,
 				},
-			});
-			protocol = bootstrapProtocol.signer;
-			protocolClient = bootstrapProtocol.vaultClient;
+				opts,
+				activeSubAccountId: 0,
+				perpMarketIndexes,
+				spotMarketIndexes,
+				oracleInfos,
+			},
+		});
+		poolDepositor = bootstrapPoolDepositor.signer;
+		poolDepositorUsdcTokenAccount = bootstrapPoolDepositor.userUSDCAccount;
+		poolDepositorBasisTokenAccount = getAssociatedTokenAddressSync(
+			basisMint.publicKey,
+			poolDepositor.publicKey
+		);
 
-			const bootstrapPoolDepositor = await bootstrapSignerClientAndUser({
-				payer: provider,
-				programId: program.programId,
-				usdcMint,
-				usdcMintAuth,
-				usdcAmount,
-				driftClientConfig: {
-					accountSubscription: {
-						type: 'websocket',
-						resubTimeoutMs: 30_000,
-					},
-					opts,
-					activeSubAccountId: 0,
-					perpMarketIndexes,
-					spotMarketIndexes,
-					oracleInfos,
+		const bootstrapPool = await bootstrapSignerClientAndUser({
+			payer: provider,
+			programId: program.programId,
+			usdcMint,
+			usdcMintAuth,
+			usdcAmount,
+			signer: poolAuth,
+			driftClientConfig: {
+				authority: pool,
+				accountSubscription: {
+					type: 'websocket',
+					resubTimeoutMs: 30_000,
 				},
-			});
-			poolDepositor = bootstrapPoolDepositor.signer;
-			poolDepositorUsdcTokenAccount = bootstrapPoolDepositor.userUSDCAccount;
+				opts,
+				activeSubAccountId: 0,
+				perpMarketIndexes,
+				spotMarketIndexes,
+				oracleInfos,
+			},
+		});
+		poolClient = bootstrapPool.vaultClient;
 
-			const bootstrapPool = await bootstrapSignerClientAndUser({
-				payer: provider,
-				programId: program.programId,
-				usdcMint,
-				usdcMintAuth,
-				usdcAmount,
-				signer: poolAuth,
-				driftClientConfig: {
-					authority: pool,
-					accountSubscription: {
-						type: 'websocket',
-						resubTimeoutMs: 30_000,
-					},
-					opts,
-					activeSubAccountId: 0,
-					perpMarketIndexes,
-					spotMarketIndexes,
-					oracleInfos,
-				},
-			});
-			poolClient = bootstrapPool.vaultClient;
-
-			// start account loader
-			bulkAccountLoader.startPolling();
-			await bulkAccountLoader.load();
-		} catch (e: any) {
-			throw new Error(e);
-		}
+		// start account loader
+		bulkAccountLoader.startPolling();
+		await bulkAccountLoader.load();
 	});
 
 	after(async () => {
@@ -445,6 +446,14 @@ describe('basis', () => {
 	});
 
 	it('Deposit', async () => {
+		const createBasisAtaIxs = await createAtaIdempotent(
+			connection,
+			poolDepositor.publicKey,
+			payer.publicKey,
+			basisMint.publicKey
+		);
+		await sendAndConfirm(connection, payer, createBasisAtaIxs);
+
 		const vaultAcct: Vault = await program.account.vault.fetch(protocolVault);
 		const driftSpotMarket = adminClient.getSpotMarketAccount(0);
 		assert.isDefined(driftSpotMarket);
@@ -485,12 +494,14 @@ describe('basis', () => {
 				driftUser: vaultAcct.user,
 				driftState: await adminClient.getStatePublicKey(),
 				driftSpotMarketVault: driftSpotMarket.vault,
-				poolDepositorTokenAccount: poolDepositorUsdcTokenAccount,
+				poolDepositorUsdcTokenAccount,
+				poolDepositorBasisTokenAccount,
+				basisMint: basisMint.publicKey,
 				poolDepositor: poolDepositor.publicKey,
 				authority: poolAuth.publicKey,
 				pool,
 				poolPayer,
-				poolPayerTokenAccount: poolPayerUsdcVault,
+				poolPayerUsdcTokenAccount: poolPayerUsdcVault,
 				payer: poolAuth.publicKey,
 				driftVaultsProgram: DRIFT_VAULTS_PROGRAM_ID,
 				driftProgram: DRIFT_PROGRAM_ID,
@@ -500,5 +511,12 @@ describe('basis', () => {
 		await sendAndConfirm(connection, poolAuth, [ix], [poolDepositor]);
 		const poolAcct: Pool = await basisProgram.account.pool.fetch(pool);
 		assert(poolAcct.deposits.eq(usdcAmount));
+		assert(poolAcct.supply.eq(usdcAmount));
+		assert(poolAcct.exchangeRate.eq(new BN(1)));
+		const poolDepositorBasisBalance = await tokenBalance(
+			connection,
+			poolDepositorBasisTokenAccount
+		);
+		assert.strictEqual(poolDepositorBasisBalance, usdcUiAmount);
 	});
 });
