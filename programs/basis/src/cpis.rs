@@ -13,7 +13,11 @@ pub trait DriftVaultsDeposit {
 }
 
 pub trait MintBasis {
-    fn mint(&self, usdc: u64) -> Result<()>;
+    fn mint(&self, amount: u64) -> Result<()>;
+}
+
+pub trait BurnBasis {
+    fn burn(&self, amount: u64) -> Result<()>;
 }
 
 pub trait DriftVaultsRequestWithdraw {

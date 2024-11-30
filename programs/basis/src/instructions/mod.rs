@@ -3,6 +3,7 @@ pub mod constraints;
 mod distribute_yield;
 mod initialize_pool;
 mod pool_deposit;
+mod pool_withdraw;
 mod remove_investment;
 mod request_distribute_yield;
 
@@ -10,5 +11,6 @@ pub use add_investment::*;
 pub use distribute_yield::*;
 pub use initialize_pool::*;
 pub use pool_deposit::*;
+pub use pool_withdraw::*;
 pub use remove_investment::*;
 pub use request_distribute_yield::*;

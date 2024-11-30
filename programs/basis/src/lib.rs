@@ -5,6 +5,7 @@ mod instructions;
 pub mod macros;
 mod math;
 mod state;
+mod tests;
 mod venue;
 
 use anchor_lang::prelude::*;
@@ -42,6 +43,13 @@ pub mod basis {
         params: PoolDepositParams,
     ) -> Result<()> {
         instructions::pool_deposit(ctx, params)
+    }
+
+    pub fn pool_withdraw<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, PoolWithdraw<'info>>,
+        params: PoolWithdrawParams,
+    ) -> Result<()> {
+        instructions::pool_withdraw(ctx, params)
     }
 
     pub fn request_distribute_yield<'c: 'info, 'info>(

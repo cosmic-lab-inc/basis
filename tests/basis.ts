@@ -50,6 +50,7 @@ import {
 	getPoolUsdcVaultAddressSync,
 	Pool,
 	PoolDepositParams,
+	PoolWithdrawParams,
 	TEST_MANAGER,
 	TEST_USDC_DECIMALS,
 	TEST_USDC_MINT,
@@ -58,7 +59,7 @@ import {
 import {
 	createAtaIdempotent,
 	createMintIxs,
-	sendAndConfirm,
+	sendAndConfirm, simulate,
 	tokenBalance,
 } from './helpers';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
@@ -395,7 +396,6 @@ describe('basis', () => {
 		assert(vpAcct.protocol.equals(protocol.publicKey));
 	});
 
-	// assign "delegate" to trade on behalf of the vault
 	it('Update Vault Delegate', async () => {
 		const vaultAccount = await program.account.vault.fetch(protocolVault);
 		await managerClient.program.methods
@@ -520,10 +520,15 @@ describe('basis', () => {
 			.instruction();
 		await sendAndConfirm(connection, poolAuth, [ix], [poolDepositor]);
 		const poolAcct: Pool = await basisProgram.account.pool.fetch(pool);
-		assert(poolAcct.deposits.eq(usdcAmount));
-		assert(poolAcct.supply.eq(usdcAmount));
-		const expectedExchangeRate = new BN(1).mul(QUOTE_PRECISION);
-		assert(poolAcct.exchangeRate.eq(expectedExchangeRate));
+		const deposits = poolAcct.deposits.toNumber() / QUOTE_PRECISION.toNumber();
+		const supply = poolAcct.supply.toNumber() / QUOTE_PRECISION.toNumber();
+		const exchangeRate =
+			poolAcct.exchangeRate.toNumber() /
+			QUOTE_PRECISION.toNumber() /
+			QUOTE_PRECISION.toNumber();
+		assert.strictEqual(deposits, usdcUiAmount);
+		assert.strictEqual(supply, usdcUiAmount);
+		assert.strictEqual(exchangeRate, 1);
 		const poolDepositorBasisBalance = await tokenBalance(
 			connection,
 			poolDepositorBasisTokenAccount
@@ -545,7 +550,7 @@ describe('basis', () => {
 		assert(vaultUserAcct.totalDeposits.eq(usdcAmount));
 		const balance =
 			vaultUserAcct.totalDeposits.toNumber() / QUOTE_PRECISION.toNumber();
-		console.log('vault usdc balance:', balance);
+		assert.strictEqual(balance, usdcUiAmount);
 
 		const marketIndex = 0;
 
@@ -936,14 +941,6 @@ describe('basis', () => {
 	});
 
 	it('Distribute Yield', async () => {
-		const poolAcctBefore: Pool = await basisProgram.account.pool.fetch(pool);
-		const depositsBefore = poolAcctBefore.deposits.toNumber();
-		const supplyBefore = poolAcctBefore.supply.toNumber();
-		const exrBefore = poolAcctBefore.exchangeRate.toNumber();
-		console.log('deposits before:', depositsBefore);
-		console.log('supply before:', supplyBefore);
-		console.log('exr before:', exrBefore / QUOTE_PRECISION.toNumber());
-
 		const vaultAcct: Vault = await program.account.vault.fetch(protocolVault);
 		const driftSpotMarket = adminClient.getSpotMarketAccount(0);
 		assert.isDefined(driftSpotMarket);
@@ -986,18 +983,65 @@ describe('basis', () => {
 			})
 			.remainingAccounts(remainingAccounts)
 			.instruction();
+		await simulate(connection, poolAuth, [ix]);
 		await sendAndConfirm(connection, poolAuth, [ix]);
 
 		const poolUsdc = await tokenBalance(connection, poolUsdcVault);
-		console.log('pool usdc:', poolUsdc);
 		assert.strictEqual(poolUsdc, 502.058333);
 
-		const poolAcctAfter: Pool = await basisProgram.account.pool.fetch(pool);
-		const depositsAfter = poolAcctAfter.deposits.toNumber();
-		const supplyAfter = poolAcctAfter.supply.toNumber();
-		const exrAfter = poolAcctAfter.exchangeRate.toNumber();
-		console.log('deposits after:', depositsAfter);
-		console.log('supply after:', supplyAfter);
-		console.log('exr after:', exrAfter / QUOTE_PRECISION.toNumber());
+		const poolAcct: Pool = await basisProgram.account.pool.fetch(pool);
+		const deposits = poolAcct.deposits.toNumber() / QUOTE_PRECISION.toNumber();
+		const supply = poolAcct.supply.toNumber() / QUOTE_PRECISION.toNumber();
+		const exchangeRate =
+			poolAcct.exchangeRate.toNumber() /
+			QUOTE_PRECISION.toNumber() /
+			QUOTE_PRECISION.toNumber();
+		assert.strictEqual(deposits, usdcUiAmount + poolUsdc);
+		assert.strictEqual(supply, usdcUiAmount);
+		assert.strictEqual(exchangeRate, 1.01004116666);
+	});
+
+	it('Withdraw', async () => {
+		const poolUsdcBefore = await tokenBalance(connection, poolUsdcVault);
+		console.log('pool usdc before withdraw:', poolUsdcBefore);
+
+		const basisBalance = await tokenBalance(
+			connection,
+			poolDepositorBasisTokenAccount
+		);
+		const params: PoolWithdrawParams = {
+			basis: new BN(basisBalance * QUOTE_PRECISION.toNumber()),
+		};
+		const ix = await basisProgram.methods
+			.poolWithdraw(params)
+			.accounts({
+				poolDepositor: poolDepositor.publicKey,
+				poolDepositorUsdcTokenAccount,
+				poolDepositorBasisTokenAccount,
+				basisMint: basisMint.publicKey,
+				authority: poolAuth.publicKey,
+				pool,
+				poolPayer,
+				poolUsdcTokenAccount: poolUsdcVault,
+				payer: poolAuth.publicKey,
+			})
+			.instruction();
+		await sendAndConfirm(connection, poolAuth, [ix]);
+
+		const poolUsdcAfter = await tokenBalance(connection, poolUsdcVault);
+		const poolAcct: Pool = await basisProgram.account.pool.fetch(pool);
+		const deposits = poolAcct.deposits.toNumber() / QUOTE_PRECISION.toNumber();
+		const supply = poolAcct.supply.toNumber() / QUOTE_PRECISION.toNumber();
+		const exchangeRate =
+			poolAcct.exchangeRate.toNumber() /
+			QUOTE_PRECISION.toNumber() /
+			QUOTE_PRECISION.toNumber();
+		console.log('pool usdc:', poolUsdcAfter);
+		console.log('deposits:', deposits);
+		console.log('supply:', supply);
+		console.log('exr:', exchangeRate);
+		// assert.strictEqual(deposits, 50502.058333);
+		// assert.strictEqual(supply, usdcUiAmount);
+		// assert.strictEqual(exchangeRate, 1.01004116666);
 	});
 });

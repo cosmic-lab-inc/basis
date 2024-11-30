@@ -51,7 +51,7 @@ pub fn distribute_yield<'c: 'info, 'info>(
     ctx.token_transfer(usdc_to_distribute)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
-    pool.distribute_yield(usdc_to_distribute)?;
+    pool.distribute_yield(usdc_to_distribute, clock)?;
 
     Ok(())
 }

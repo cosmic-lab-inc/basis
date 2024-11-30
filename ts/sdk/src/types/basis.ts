@@ -277,6 +277,71 @@ export type Basis = {
 			];
 		},
 		{
+			name: 'poolWithdraw';
+			accounts: [
+				{
+					name: 'poolDepositor';
+					isMut: false;
+					isSigner: true;
+				},
+				{
+					name: 'poolDepositorUsdcTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'poolDepositorBasisTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'basisMint';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'authority';
+					isMut: false;
+					isSigner: true;
+					docs: ['Authority of [`Pool`]'];
+				},
+				{
+					name: 'pool';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'poolPayer';
+					isMut: true;
+					isSigner: false;
+					docs: ['PDA signer that pays for transaction fees'];
+				},
+				{
+					name: 'poolUsdcTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'payer';
+					isMut: true;
+					isSigner: true;
+				},
+				{
+					name: 'tokenProgram';
+					isMut: false;
+					isSigner: false;
+				}
+			];
+			args: [
+				{
+					name: 'params';
+					type: {
+						defined: 'PoolWithdrawParams';
+					};
+				}
+			];
+		},
+		{
 			name: 'requestDistributeYield';
 			accounts: [
 				{
@@ -440,14 +505,16 @@ export type Basis = {
 					{
 						name: 'basisMint';
 						docs: [
-							'Mint of the yield-bearing token backed by this pool: BASIS'
+							'Mint of the yield-bearing token backed by this pool: BASIS.',
+							'Has 6 decimals (same as USDC).'
 						];
 						type: 'publicKey';
 					},
 					{
 						name: 'usdcMint';
 						docs: [
-							'USDC mint with which the yield-bearing token is burned/exchanged for, and which deposits are made in'
+							'USDC mint with which the yield-bearing token is burned/exchanged for, and which deposits are made in.',
+							'Has 6 decimals (same as BASIS).'
 						];
 						type: 'publicKey';
 					},
@@ -481,29 +548,33 @@ export type Basis = {
 					{
 						name: 'deposits';
 						docs: [
-							'Total USDC deposits in the pool which backs the BASIS token'
+							'Total USDC deposits in the pool which backs the BASIS token.',
+							'In QUOTE_PRECISION units'
 						];
 						type: 'u128';
 					},
 					{
 						name: 'supply';
-						docs: ['Outstanding supply of the BASIS token'];
+						docs: [
+							'Outstanding supply of the BASIS token.',
+							'In QUOTE_PRECISION units.'
+						];
 						type: 'u128';
 					},
 					{
 						name: 'exchangeRate';
-						docs: ['Exchange rate of BASIS/USDC'];
+						docs: ['Exchange rate of BASIS/USDC in QUOTE_PRECISION^2 units'];
 						type: 'u128';
 					},
 					{
 						name: 'lastDistributionTs';
 						docs: ['Last time yield was distributed from each [`Investment`]'];
-						type: 'u64';
+						type: 'i64';
 					},
 					{
 						name: 'lastRebalanceTs';
 						docs: ['Last time the [`Investment`] weights were rebalanced'];
-						type: 'u64';
+						type: 'i64';
 					},
 					{
 						name: 'initTs';
@@ -544,6 +615,18 @@ export type Basis = {
 				fields: [
 					{
 						name: 'usdc';
+						type: 'u64';
+					}
+				];
+			};
+		},
+		{
+			name: 'PoolWithdrawParams';
+			type: {
+				kind: 'struct';
+				fields: [
+					{
+						name: 'basis';
 						type: 'u64';
 					}
 				];
@@ -951,6 +1034,71 @@ export const IDL: Basis = {
 			],
 		},
 		{
+			name: 'poolWithdraw',
+			accounts: [
+				{
+					name: 'poolDepositor',
+					isMut: false,
+					isSigner: true,
+				},
+				{
+					name: 'poolDepositorUsdcTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'poolDepositorBasisTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'basisMint',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'authority',
+					isMut: false,
+					isSigner: true,
+					docs: ['Authority of [`Pool`]'],
+				},
+				{
+					name: 'pool',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'poolPayer',
+					isMut: true,
+					isSigner: false,
+					docs: ['PDA signer that pays for transaction fees'],
+				},
+				{
+					name: 'poolUsdcTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'payer',
+					isMut: true,
+					isSigner: true,
+				},
+				{
+					name: 'tokenProgram',
+					isMut: false,
+					isSigner: false,
+				},
+			],
+			args: [
+				{
+					name: 'params',
+					type: {
+						defined: 'PoolWithdrawParams',
+					},
+				},
+			],
+		},
+		{
 			name: 'requestDistributeYield',
 			accounts: [
 				{
@@ -1114,14 +1262,16 @@ export const IDL: Basis = {
 					{
 						name: 'basisMint',
 						docs: [
-							'Mint of the yield-bearing token backed by this pool: BASIS',
+							'Mint of the yield-bearing token backed by this pool: BASIS.',
+							'Has 6 decimals (same as USDC).',
 						],
 						type: 'publicKey',
 					},
 					{
 						name: 'usdcMint',
 						docs: [
-							'USDC mint with which the yield-bearing token is burned/exchanged for, and which deposits are made in',
+							'USDC mint with which the yield-bearing token is burned/exchanged for, and which deposits are made in.',
+							'Has 6 decimals (same as BASIS).',
 						],
 						type: 'publicKey',
 					},
@@ -1155,29 +1305,33 @@ export const IDL: Basis = {
 					{
 						name: 'deposits',
 						docs: [
-							'Total USDC deposits in the pool which backs the BASIS token',
+							'Total USDC deposits in the pool which backs the BASIS token.',
+							'In QUOTE_PRECISION units',
 						],
 						type: 'u128',
 					},
 					{
 						name: 'supply',
-						docs: ['Outstanding supply of the BASIS token'],
+						docs: [
+							'Outstanding supply of the BASIS token.',
+							'In QUOTE_PRECISION units.',
+						],
 						type: 'u128',
 					},
 					{
 						name: 'exchangeRate',
-						docs: ['Exchange rate of BASIS/USDC'],
+						docs: ['Exchange rate of BASIS/USDC in QUOTE_PRECISION^2 units'],
 						type: 'u128',
 					},
 					{
 						name: 'lastDistributionTs',
 						docs: ['Last time yield was distributed from each [`Investment`]'],
-						type: 'u64',
+						type: 'i64',
 					},
 					{
 						name: 'lastRebalanceTs',
 						docs: ['Last time the [`Investment`] weights were rebalanced'],
-						type: 'u64',
+						type: 'i64',
 					},
 					{
 						name: 'initTs',
@@ -1218,6 +1372,18 @@ export const IDL: Basis = {
 				fields: [
 					{
 						name: 'usdc',
+						type: 'u64',
+					},
+				],
+			},
+		},
+		{
+			name: 'PoolWithdrawParams',
+			type: {
+				kind: 'struct',
+				fields: [
+					{
+						name: 'basis',
 						type: 'u64',
 					},
 				],

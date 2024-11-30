@@ -15,12 +15,14 @@ pub fn pool_deposit<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, PoolDeposit<'info>>,
     params: PoolDepositParams,
 ) -> Result<()> {
+    let mut pool = ctx.accounts.pool.load_mut()?;
+    let basis_to_mint = pool.deposit(params.usdc)?;
+    msg!("basis to mint: {}", basis_to_mint);
+    drop(pool);
+
     ctx.token_transfer(params.usdc)?;
     ctx.deposit(params.usdc)?;
-    ctx.mint(params.usdc)?;
-
-    let mut pool = ctx.accounts.pool.load_mut()?;
-    pool.deposit(params.usdc)?;
+    ctx.mint(basis_to_mint)?;
 
     Ok(())
 }

@@ -42,6 +42,10 @@ export type PoolDepositParams = {
 	usdc: BN;
 };
 
+export type PoolWithdrawParams = {
+	basis: BN;
+};
+
 export class Venue {
 	static readonly DRIFT = { drift: {} };
 	static readonly PHOENIX = { phoenix: {} };

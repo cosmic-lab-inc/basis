@@ -14,9 +14,11 @@ use static_assertions::const_assert_eq;
 pub struct Pool {
     /// The PDA of this account
     pub pubkey: Pubkey,
-    /// Mint of the yield-bearing token backed by this pool: BASIS
+    /// Mint of the yield-bearing token backed by this pool: BASIS.
+    /// Has 6 decimals (same as USDC).
     pub basis_mint: Pubkey,
-    /// USDC mint with which the yield-bearing token is burned/exchanged for, and which deposits are made in
+    /// USDC mint with which the yield-bearing token is burned/exchanged for, and which deposits are made in.
+    /// Has 6 decimals (same as BASIS).
     pub usdc_mint: Pubkey,
     /// Token account to receive USDC when removing a fund, distributing yield, or rebalancing
     pub usdc_vault: Pubkey,
@@ -25,16 +27,18 @@ pub struct Pool {
     /// To prevent breaching the maximum remaining accounts per instruction of 32,
     /// the number of funds is limited to 16.
     pub investments: [Investment; 16],
-    /// Total USDC deposits in the pool which backs the BASIS token
+    /// Total USDC deposits in the pool which backs the BASIS token.
+    /// In QUOTE_PRECISION units
     pub deposits: u128,
-    /// Outstanding supply of the BASIS token
+    /// Outstanding supply of the BASIS token.
+    /// In QUOTE_PRECISION units.
     pub supply: u128,
-    /// Exchange rate of BASIS/USDC
+    /// Exchange rate of BASIS/USDC in QUOTE_PRECISION^2 units
     pub exchange_rate: u128,
     /// Last time yield was distributed from each [`Investment`]
-    pub last_distribution_ts: u64,
+    pub last_distribution_ts: i64,
     /// Last time the [`Investment`] weights were rebalanced
-    pub last_rebalance_ts: u64,
+    pub last_rebalance_ts: i64,
     /// Time this account was initialized
     pub init_ts: i64,
     pub bump: u8,
@@ -80,22 +84,59 @@ impl Pool {
         }
     }
 
-    pub fn deposit(&mut self, amount: u64) -> PoolResult<()> {
-        self.deposits = self.deposits.safe_add(amount.cast()?)?;
-        self.supply = self.supply.safe_add(amount.cast()?)?;
-        self.exchange_rate = self
-            .deposits
+    pub fn initial_exchange_rate() -> PoolResult<u128> {
+        1_u128.safe_mul(QUOTE_PRECISION)?.safe_mul(QUOTE_PRECISION)
+    }
+
+    pub fn usdc_to_basis(&self, usdc: u64) -> PoolResult<u128> {
+        usdc.cast::<u128>()?
             .safe_mul(QUOTE_PRECISION)?
-            .safe_div(self.supply)?;
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_div(self.exchange_rate)
+    }
+
+    pub fn basis_to_usdc(&self, basis: u64) -> PoolResult<u128> {
+        basis
+            .cast::<u128>()?
+            .safe_mul(self.exchange_rate)?
+            .safe_div(QUOTE_PRECISION)?
+            .safe_div(QUOTE_PRECISION)
+    }
+
+    /// Deposits and supply are in QUOTE_PRECISION units
+    pub fn update_exchange_rate(&mut self) -> PoolResult<()> {
+        if self.deposits == 0 || self.supply == 0 {
+            self.exchange_rate = Self::initial_exchange_rate()?;
+        } else {
+            self.exchange_rate = self
+                .deposits
+                .safe_mul(QUOTE_PRECISION)?
+                .safe_mul(QUOTE_PRECISION)?
+                .safe_div(self.supply)?;
+        }
         Ok(())
     }
 
-    pub fn distribute_yield(&mut self, amount: u64) -> PoolResult<()> {
+    pub fn deposit(&mut self, usdc: u64) -> PoolResult<u64> {
+        let basis = self.usdc_to_basis(usdc)?;
+        self.deposits = self.deposits.safe_add(usdc.cast()?)?;
+        self.supply = self.supply.safe_add(basis)?;
+        self.update_exchange_rate()?;
+        basis.cast()
+    }
+
+    pub fn withdraw(&mut self, basis: u64) -> PoolResult<u64> {
+        let usdc = self.basis_to_usdc(basis)?;
+        self.deposits = self.deposits.safe_sub(usdc)?;
+        self.supply = self.supply.safe_sub(basis.cast()?)?;
+        self.update_exchange_rate()?;
+        usdc.cast()
+    }
+
+    pub fn distribute_yield(&mut self, amount: u64, clock: &Clock) -> PoolResult<()> {
         self.deposits = self.deposits.safe_add(amount.cast()?)?;
-        self.exchange_rate = self
-            .deposits
-            .safe_mul(QUOTE_PRECISION)?
-            .safe_div(self.supply)?;
+        self.last_distribution_ts = clock.unix_timestamp;
+        self.update_exchange_rate()?;
         Ok(())
     }
 }

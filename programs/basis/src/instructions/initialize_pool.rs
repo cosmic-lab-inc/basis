@@ -15,6 +15,7 @@ pub fn initialize_pool<'c: 'info, 'info>(
     pool.basis_mint = *ctx.accounts.basis_mint.to_account_info().key;
     pool.usdc_mint = *ctx.accounts.usdc_mint.to_account_info().key;
     pool.usdc_vault = *ctx.accounts.usdc_vault.to_account_info().key;
+    pool.exchange_rate = Pool::initial_exchange_rate()?;
     pool.init_ts = Clock::get()?.unix_timestamp;
     pool.bump = bump;
 
