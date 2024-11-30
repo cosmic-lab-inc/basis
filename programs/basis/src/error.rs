@@ -21,6 +21,10 @@ pub enum ErrorCode {
     BnConversion,
     #[msg("NoSiblingInstruction")]
     NoSiblingInstruction,
+    #[msg("NoDepositsAvailable")]
+    NoDepositsAvailable,
+    #[msg("NoYieldAvailable")]
+    NoYieldAvailable,
 }
 
 #[macro_export]

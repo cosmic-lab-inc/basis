@@ -43,4 +43,16 @@ pub mod basis {
     ) -> Result<()> {
         instructions::pool_deposit(ctx, params)
     }
+
+    pub fn request_distribute_yield<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, RequestDistributeYield<'info>>,
+    ) -> Result<()> {
+        instructions::request_distribute_yield(ctx)
+    }
+
+    pub fn distribute_yield<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, DistributeYield<'info>>,
+    ) -> Result<()> {
+        instructions::distribute_yield(ctx)
+    }
 }

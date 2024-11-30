@@ -25,6 +25,6 @@ drift-macros = { git = "https://github.com/drift-labs/drift-macros.git", rev = "
 borsh = "0.10.3"
 solana-program = "1.16"
 heapless = "0.8.0"
-drift = { git = "https://github.com/drift-labs/protocol-v2.git", rev = "v2.95.0", features = ["cpi", "mainnet-beta"], default-features = false}
-drift-vaults = { git = "https://github.com/drift-labs/drift-vaults.git", branch = "master", features = ["cpi"] }
+drift = { git = "https://github.com/drift-labs/protocol-v2.git", rev = "v2.96.0", features = ["cpi", "mainnet-beta"], default-features = false}
+drift-vaults = { git = "https://github.com/drift-labs/drift-vaults.git", rev = "e1d66fa", features = ["cpi"] }
 solana-security-txt = "=1.1.0"

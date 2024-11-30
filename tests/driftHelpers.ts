@@ -55,7 +55,6 @@ import {
 } from '@cosmic-lab/data-source';
 import { err, ok, Result } from 'neverthrow';
 import { signatureLink } from '../ts/sdk';
-import { createAtaIdempotent } from './helpers';
 
 async function sendTransactionWithResult(
 	instructions: InstructionReturn[],
@@ -1148,7 +1147,7 @@ export async function bootstrapSignerClientAndUser(params: {
 			vaultClient,
 			provider,
 		};
-	} catch (e) {
+	} catch (e: any) {
 		throw new Error(e);
 	}
 }

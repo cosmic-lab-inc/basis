@@ -1,19 +1,11 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::Mint;
-use drift_vaults::state::VaultDepositor;
+use anchor_spl::token::{Mint, TokenAccount};
 use solana_program::program_option::COption;
 
 use crate::state::*;
 
 pub fn is_authority_for_pool(pool: &AccountLoader<Pool>, signer: &Signer) -> Result<bool> {
     Ok(pool.load()?.authority.eq(signer.key))
-}
-
-pub fn is_authority_for_investor(
-    investor: &AccountLoader<VaultDepositor>,
-    key: &Pubkey,
-) -> Result<bool> {
-    Ok(investor.load()?.authority.eq(key))
 }
 
 pub fn is_basis_mint(pool: &AccountLoader<Pool>, mint: &Account<Mint>) -> Result<bool> {
@@ -23,4 +15,11 @@ pub fn is_basis_mint(pool: &AccountLoader<Pool>, mint: &Account<Mint>) -> Result
         }
         COption::None => false,
     })
+}
+
+pub fn is_pool_usdc_vault(
+    pool: &AccountLoader<Pool>,
+    token_account: &Account<TokenAccount>,
+) -> Result<bool> {
+    Ok(pool.load()?.usdc_vault.eq(&token_account.key()))
 }

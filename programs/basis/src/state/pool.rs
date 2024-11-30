@@ -1,3 +1,4 @@
+use crate::constants::QUOTE_PRECISION;
 use crate::error::{ErrorCode, PoolResult};
 use crate::math::{Cast, SafeMath};
 use crate::state::Investment;
@@ -59,8 +60,7 @@ impl Pool {
         let new_investment_index = self
             .investments
             .iter()
-            .enumerate()
-            .position(|(index, investment)| investment.is_empty())
+            .position(|investment| investment.is_empty())
             .ok_or(ErrorCode::NoInvestmentsAvailable)?;
         self.investments[new_investment_index] = investment;
         Ok(new_investment_index)
@@ -83,7 +83,19 @@ impl Pool {
     pub fn deposit(&mut self, amount: u64) -> PoolResult<()> {
         self.deposits = self.deposits.safe_add(amount.cast()?)?;
         self.supply = self.supply.safe_add(amount.cast()?)?;
-        self.exchange_rate = self.deposits.safe_div(self.supply)?;
+        self.exchange_rate = self
+            .deposits
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_div(self.supply)?;
+        Ok(())
+    }
+
+    pub fn distribute_yield(&mut self, amount: u64) -> PoolResult<()> {
+        self.deposits = self.deposits.safe_add(amount.cast()?)?;
+        self.exchange_rate = self
+            .deposits
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_div(self.supply)?;
         Ok(())
     }
 }
