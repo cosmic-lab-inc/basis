@@ -1,4 +1,4 @@
-use crate::constants::QUOTE_PRECISION;
+use crate::constants::{PERCENTAGE_PRECISION, QUOTE_PRECISION};
 use crate::error::{ErrorCode, PoolResult};
 use crate::math::{Cast, SafeMath};
 use crate::state::Investment;
@@ -78,9 +78,21 @@ impl Pool {
     pub fn investments(&self, ignore: Option<&Investment>) -> impl Iterator<Item = &Investment> {
         let ignore_key = ignore
             .map(|investment| investment.investor)
-            .unwrap_or(Pubkey::default());
+            .unwrap_or_default();
         self.investments
             .iter()
+            .filter(move |investment| !investment.is_empty() && ignore_key != investment.investor)
+    }
+
+    pub fn investments_mut(
+        &mut self,
+        ignore: Option<&Investment>,
+    ) -> impl Iterator<Item = &mut Investment> {
+        let ignore_key = ignore
+            .map(|investment| investment.investor)
+            .unwrap_or_default();
+        self.investments
+            .iter_mut()
             .filter(move |investment| !investment.is_empty() && ignore_key != investment.investor)
     }
 
@@ -92,7 +104,7 @@ impl Pool {
             .investments(ignore)
             .flat_map(|i| i.realized_profit_ratio())
             .sum();
-        for investment in self.investments.iter_mut() {
+        for investment in self.investments_mut(ignore) {
             investment.update_weight(total_weight)?;
         }
         Ok(())
@@ -105,6 +117,11 @@ impl Pool {
             .position(|investment| investment.is_empty())
             .ok_or(ErrorCode::NoInvestmentsAvailable)?;
         self.investments[new_investment_index] = investment;
+        if new_investment_index == 0 {
+            // if index is zero then this is the only investment in the pool,
+            // thus it can only have 100% of the weight
+            self.investments[new_investment_index].weight = PERCENTAGE_PRECISION.cast()?;
+        }
         self.update_investment_weights(Some(&investment))?;
         Ok(new_investment_index)
     }

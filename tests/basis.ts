@@ -61,6 +61,7 @@ import {
 	createAtaIdempotent,
 	createMintIxs,
 	sendAndConfirm,
+	simulate,
 	tokenBalance,
 } from './helpers';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
@@ -450,10 +451,15 @@ describe('basis', () => {
 				driftVaultsProgram: DRIFT_VAULTS_PROGRAM_ID,
 			})
 			.instruction();
+		await simulate(connection, poolAuth, [ix]);
 		await sendAndConfirm(connection, poolAuth, [ix]);
+
 		const investorAcct: VaultDepositor =
 			await program.account.vaultDepositor.fetch(investor);
 		assert(investorAcct.authority.equals(poolPayer));
+		const poolAcct: Pool = await basisProgram.account.pool.fetch(pool);
+		const investmentState = poolAcct.investments[0];
+		assert.strictEqual(investmentState.weight, 1_000_000);
 	});
 
 	it('Deposit', async () => {

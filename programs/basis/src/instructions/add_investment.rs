@@ -20,7 +20,8 @@ pub fn add_investment<'c: 'info, 'info>(
     };
     ctx.initialize_investor()?;
     let mut pool = ctx.accounts.pool.load_mut()?;
-    pool.add_investment(investment)?;
+    let index = pool.add_investment(investment)?;
+    msg!("Investment added at index: {}", index);
     Ok(())
 }
 
