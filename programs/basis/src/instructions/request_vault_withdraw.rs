@@ -1,25 +1,26 @@
 use crate::constraints::*;
-use crate::cpis::DriftVaultsRequestWithdraw;
+use crate::cpis::*;
 use crate::error::ErrorCode;
 use crate::math::{Cast, SafeMath};
 use crate::state::{Investment, InvestmentEquity, Pool};
 use crate::{declare_pool_payer_seeds, validate};
 use anchor_lang::prelude::*;
+use anchor_spl::token::TokenAccount;
 use drift::instructions::optional_accounts::AccountMaps;
 use drift::state::user::User;
 use drift_vaults::cpi::accounts::RequestWithdraw;
 use drift_vaults::program::DriftVaults;
 use drift_vaults::state::{
-    AccountMapProvider, VaultDepositor, VaultDepositorBase, VaultProtocolProvider,
+    AccountMapProvider, Vault, VaultDepositor, VaultProtocolProvider, WithdrawUnit,
 };
-use drift_vaults::state::{Vault, WithdrawUnit};
 
-pub fn request_distribute_yield<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, RequestDistributeYield<'info>>,
+pub fn request_vault_withdraw<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, RequestVaultWithdraw<'info>>,
+    params: RequestVaultWithdrawParams,
 ) -> Result<()> {
     let clock = &Clock::get()?;
-    let vault = ctx.accounts.vault.load_mut()?;
-    let investor = ctx.accounts.investor.load_mut()?;
+    let vault = ctx.accounts.vault.load()?;
+    let investor = ctx.accounts.investor.load()?;
 
     validate!(
         investor.net_deposits > 0,
@@ -43,42 +44,45 @@ pub fn request_distribute_yield<'c: 'info, 'info>(
     let vault_equity =
         vault.calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)?;
 
-    let InvestmentEquity {
-        profit,
-        profit_after_share,
-        ..
-    } = Investment::investment_equity_with_profit_share(vault_equity, &investor, &vault, &mut vp)?;
+    let InvestmentEquity { equity, .. } =
+        Investment::investment_equity_with_profit_share(vault_equity, &investor, &vault, &mut vp)?;
 
-    msg!("profit: {}", profit);
-    msg!("profit_after_share: {}", profit_after_share);
+    msg!("USDC in vault: {}", vault_equity);
+    msg!("investor USDC in vault: {}", equity);
 
     validate!(
-        profit_after_share > 0,
-        ErrorCode::NoYieldAvailable,
-        "No yield to distribute"
+        ctx.accounts.pool_depositor_basis_token_account.amount >= params.basis,
+        ErrorCode::InsufficientBasisTokens,
+        "Insufficient BASIS tokens in pool depositor token account ({} < {})",
+        ctx.accounts.pool_depositor_basis_token_account.amount,
+        params.basis
     )?;
+    let pool = ctx.accounts.pool.load()?;
+    let usdc_to_issue = pool.basis_to_usdc(params.basis)?.cast::<u64>()?;
+    msg!("USDC to issue: {}", usdc_to_issue);
+    let pool_usdc = ctx.accounts.pool_usdc_token_account.amount;
+    msg!("USDC in pool: {}", pool_usdc);
+    let usdc_to_request = usdc_to_issue.safe_sub(pool_usdc)?;
+    msg!("USDC to request: {}", usdc_to_request);
 
-    // todo: the equity available to withdraw is one unit less than the withdraw request (49,999.999999 instead of 50,000)
-    //  which leads to the pool ending up with one less unit to redeem for basis.
-    //  the problem arises during yield distribution. the "profit after share" is seemingly one unit higher than it should be,
-    //  such that withdrawing the original deposits is one unit less than we expect. 
-    //  rather than worrying about that down the line, we subtract one unit from profit to distribute so that it can be 
-    //  withdrawn with deposits if need be, so that a depositor can get the fair exchange rate of USDC deposits for their BASIS.
-    let usdc_to_withdraw = profit_after_share.cast::<u64>()?.safe_sub(1)?;
-    msg!("{} USDC to distribute", usdc_to_withdraw);
-
+    drop(pool);
     drop(vault);
+    drop(vp);
     drop(user);
     drop(investor);
-    drop(vp);
 
-    ctx.request_withdraw(usdc_to_withdraw)?;
-
+    ctx.request_withdraw(usdc_to_request)?;
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
+pub struct RequestVaultWithdrawParams {
+    pub basis: u64,
+}
+
 #[derive(Accounts)]
-pub struct RequestDistributeYield<'info> {
+#[instruction(params: RequestVaultWithdrawParams)]
+pub struct RequestVaultWithdraw<'info> {
     #[account(mut)]
     pub vault: AccountLoader<'info, Vault>,
     #[account(mut)]
@@ -88,29 +92,31 @@ pub struct RequestDistributeYield<'info> {
     pub drift_user: AccountLoader<'info, User>,
     /// CHECK: Seeds validated in CPI to DriftVaults program
     pub drift_state: AccountInfo<'info>,
+    pub drift_vaults_program: Program<'info, DriftVaults>,
 
+    #[account(mut)]
+    pub pool_depositor: Signer<'info>,
     #[account(
-        mut,
-        constraint = is_authority_for_pool(&pool, &authority)?,
+        token::authority = pool_depositor.key(),
+        token::mint = pool.load()?.basis_mint
     )]
+    pub pool_depositor_basis_token_account: Box<Account<'info, TokenAccount>>,
+    #[account(
+        token::authority = pool,
+        token::mint = pool.load()?.usdc_mint,
+        constraint = is_pool_usdc_vault(&pool, &pool_usdc_token_account)?
+    )]
+    pub pool_usdc_token_account: Box<Account<'info, TokenAccount>>,
     pub pool: AccountLoader<'info, Pool>,
-    pub authority: Signer<'info>,
     /// PDA signer that pays for transaction fees
     #[account(
-        mut,
         seeds = [b"pool_payer", pool.key().as_ref()],
         bump,
     )]
     pub pool_payer: SystemAccount<'info>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub drift_vaults_program: Program<'info, DriftVaults>,
 }
 
-impl<'info> DriftVaultsRequestWithdraw
-    for Context<'_, '_, '_, 'info, RequestDistributeYield<'info>>
-{
+impl<'info> DriftVaultsRequestWithdraw for Context<'_, '_, '_, 'info, RequestVaultWithdraw<'info>> {
     fn request_withdraw(&self, usdc: u64) -> Result<()> {
         declare_pool_payer_seeds!(self.accounts.pool, self.bumps.pool_payer, seeds);
         let rem_accts = self.remaining_accounts.to_vec();

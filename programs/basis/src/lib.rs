@@ -45,6 +45,19 @@ pub mod basis {
         instructions::pool_deposit(ctx, params)
     }
 
+    pub fn request_vault_withdraw<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, RequestVaultWithdraw<'info>>,
+        params: RequestVaultWithdrawParams,
+    ) -> Result<()> {
+        instructions::request_vault_withdraw(ctx, params)
+    }
+
+    pub fn vault_withdraw<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, VaultWithdraw<'info>>,
+    ) -> Result<()> {
+        instructions::vault_withdraw(ctx)
+    }
+
     pub fn pool_withdraw<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, PoolWithdraw<'info>>,
         params: PoolWithdrawParams,

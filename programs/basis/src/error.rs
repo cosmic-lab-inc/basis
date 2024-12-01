@@ -25,6 +25,8 @@ pub enum ErrorCode {
     NoDepositsAvailable,
     #[msg("NoYieldAvailable")]
     NoYieldAvailable,
+    #[msg("InsufficientBasisTokens")]
+    InsufficientBasisTokens,
 }
 
 #[macro_export]

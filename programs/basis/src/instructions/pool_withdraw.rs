@@ -1,6 +1,7 @@
 use crate::constraints::*;
 use crate::cpis::*;
 use crate::declare_pool_seeds;
+use crate::math::SafeMath;
 use crate::state::Pool;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{burn, transfer, Burn, Mint};
@@ -11,9 +12,11 @@ pub fn pool_withdraw<'c: 'info, 'info>(
     params: PoolWithdrawParams,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
-    let usdc_to_issue = pool.withdraw(params.basis)?;
+    let usdc_to_issue = pool.withdraw(params.basis)?.safe_sub(1)?;
     drop(pool);
     msg!("USDC to issue: {}", usdc_to_issue);
+    let pool_usdc = ctx.accounts.pool_usdc_token_account.amount;
+    msg!("pool usdc: {}", pool_usdc);
 
     ctx.token_transfer(usdc_to_issue)?;
     ctx.burn(params.basis)?;
@@ -29,6 +32,7 @@ pub struct PoolWithdrawParams {
 #[derive(Accounts)]
 #[instruction(params: PoolWithdrawParams)]
 pub struct PoolWithdraw<'info> {
+    #[account(mut)]
     pub pool_depositor: Signer<'info>,
     #[account(
         mut,
@@ -45,16 +49,12 @@ pub struct PoolWithdraw<'info> {
 
     #[account(
         mut,
+        mint::authority = pool,
         constraint = is_basis_mint(&pool, &basis_mint)?
     )]
     pub basis_mint: Box<Account<'info, Mint>>,
 
-    /// Authority of [`Pool`]
-    pub authority: Signer<'info>,
-    #[account(
-        mut,
-        constraint = is_authority_for_pool(&pool, &authority)?,
-    )]
+    #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
     /// PDA signer that pays for transaction fees
     #[account(
@@ -71,8 +71,6 @@ pub struct PoolWithdraw<'info> {
     )]
     pub pool_usdc_token_account: Box<Account<'info, TokenAccount>>,
 
-    #[account(mut)]
-    pub payer: Signer<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -110,7 +108,7 @@ impl<'info> BurnBasis for Context<'_, '_, '_, 'info, PoolWithdraw<'info>> {
                 .pool_depositor_basis_token_account
                 .to_account_info()
                 .clone(),
-            authority: self.accounts.pool.to_account_info().clone(),
+            authority: self.accounts.pool_depositor.to_account_info().clone(),
         };
         let token_program = self.accounts.token_program.to_account_info().clone();
         let cpi_context = CpiContext::new_with_signer(token_program, burn_cpi_accounts, seeds);

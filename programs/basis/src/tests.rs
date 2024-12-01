@@ -56,4 +56,13 @@ mod basis_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn investor_equity() -> PoolResult<()> {
+        let vault_equity = 50_502_058_334;
+        let vault_shares = 50_000_000_000;
+        let investor_shares = 50_000_000_000;
+
+        Ok(())
+    }
 }

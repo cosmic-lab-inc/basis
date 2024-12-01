@@ -1,47 +1,59 @@
 use crate::constraints::*;
 use crate::cpis::{DriftVaultsWithdraw, TokenTransfer};
 use crate::declare_pool_payer_seeds;
-use crate::math::SafeMath;
-use crate::state::Pool;
+use crate::state::{Investment, Pool};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
+use drift::instructions::optional_accounts::AccountMaps;
+use drift::math::insurance::if_shares_to_vault_amount as depositor_shares_to_vault_amount;
 use drift::program::Drift;
 use drift::state::user::User;
 use drift_vaults::cpi::accounts::Withdraw;
 use drift_vaults::program::DriftVaults;
-use drift_vaults::state::{Vault, VaultDepositor};
+use drift_vaults::state::{AccountMapProvider, Vault, VaultDepositor, VaultProtocolProvider};
 
-pub fn distribute_yield<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, DistributeYield<'info>>,
+pub fn vault_withdraw<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, VaultWithdraw<'info>>,
 ) -> Result<()> {
     let clock = &Clock::get()?;
+    let vault = ctx.accounts.vault.load_mut()?;
+    // backwards compatible: if last rem acct does not deserialize into [`VaultProtocol`] then it's a legacy vault.
+    let mut vp = ctx.vault_protocol();
+    vault.validate_vault_protocol(&vp)?;
+    let vp = vp.as_mut().map(|vp| vp.load_mut()).transpose()?;
+    let user = ctx.accounts.drift_user.load()?;
+    let spot_market_index = vault.spot_market_index;
     let investor = ctx.accounts.investor.load()?;
-    let pool_payer_usdc_before = ctx.accounts.pool_payer_usdc_token_account.amount;
+
+    let AccountMaps {
+        perp_market_map,
+        spot_market_map,
+        mut oracle_map,
+    } = ctx.load_maps(clock.slot, Some(spot_market_index), vp.is_some())?;
+    let vault_equity =
+        vault.calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)?;
+
+    let usdc_to_distribute =
+        Investment::investment_withdraw_request_equity(vault_equity, &vault, &investor)?;
+
+    msg!("USDC in vault: {}", vault_equity);
+
+    msg!("{} USDC to withdraw from vault to pool", usdc_to_distribute);
+    drop(vault);
     drop(investor);
+    drop(user);
+    drop(vp);
 
     ctx.withdraw()?;
-
-    ctx.accounts.pool_payer_usdc_token_account.reload()?;
-    let pool_payer_usdc_after = ctx.accounts.pool_payer_usdc_token_account.amount;
-    let usdc_to_distribute = pool_payer_usdc_after.safe_sub(pool_payer_usdc_before)?;
-    msg!("{} USDC to distribute pool", usdc_to_distribute);
-
     ctx.token_transfer(usdc_to_distribute)?;
 
-    ctx.accounts.pool_usdc_token_account.reload()?;
-    let pool_usdc_after = ctx.accounts.pool_usdc_token_account.amount;
-    msg!("pool_usdc_after: {}", pool_usdc_after);
-
-    let mut pool = ctx.accounts.pool.load_mut()?;
-    pool.distribute_yield(usdc_to_distribute, clock)?;
     Ok(())
 }
 
 #[derive(Accounts)]
-pub struct DistributeYield<'info> {
+pub struct VaultWithdraw<'info> {
     #[account(mut)]
     pub vault: AccountLoader<'info, Vault>,
-    /// CHECK: Seeds validated in CPI to DriftVaults program
     #[account(mut)]
     pub investor: AccountLoader<'info, VaultDepositor>,
     #[account(mut)]
@@ -57,13 +69,8 @@ pub struct DistributeYield<'info> {
     pub drift_spot_market_vault: Box<Account<'info, TokenAccount>>,
     /// CHECK: checked in drift cpi
     pub drift_signer: AccountInfo<'info>,
-
-    #[account(
-        mut,
-        token::authority = pool_payer,
-        token::mint = vault_token_account.mint,
-    )]
-    pub pool_payer_usdc_token_account: Box<Account<'info, TokenAccount>>,
+    pub drift_vaults_program: Program<'info, DriftVaults>,
+    pub drift_program: Program<'info, Drift>,
 
     #[account(
         mut,
@@ -71,12 +78,15 @@ pub struct DistributeYield<'info> {
     )]
     pub pool_usdc_token_account: Account<'info, TokenAccount>,
 
+    #[account(mut)]
+    pub pool: AccountLoader<'info, Pool>,
+
     #[account(
         mut,
-        constraint = is_authority_for_pool(&pool, &authority)?,
+        token::authority = pool_payer,
+        token::mint = vault_token_account.mint,
     )]
-    pub pool: AccountLoader<'info, Pool>,
-    pub authority: Signer<'info>,
+    pub pool_payer_usdc_token_account: Box<Account<'info, TokenAccount>>,
     /// PDA signer that pays for transaction fees
     #[account(
         mut,
@@ -85,14 +95,10 @@ pub struct DistributeYield<'info> {
     )]
     pub pool_payer: SystemAccount<'info>,
 
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub drift_vaults_program: Program<'info, DriftVaults>,
-    pub drift_program: Program<'info, Drift>,
     pub token_program: Program<'info, Token>,
 }
 
-impl<'info> DriftVaultsWithdraw for Context<'_, '_, '_, 'info, DistributeYield<'info>> {
+impl<'info> DriftVaultsWithdraw for Context<'_, '_, '_, 'info, VaultWithdraw<'info>> {
     fn withdraw(&self) -> Result<()> {
         declare_pool_payer_seeds!(self.accounts.pool, self.bumps.pool_payer, seeds);
         let rem_accts = self.remaining_accounts.to_vec();
@@ -120,8 +126,7 @@ impl<'info> DriftVaultsWithdraw for Context<'_, '_, '_, 'info, DistributeYield<'
     }
 }
 
-// Transfer USDC from pool payer to pool usdc vault, so it can back the BASIS supply
-impl<'info> TokenTransfer for Context<'_, '_, '_, 'info, DistributeYield<'info>> {
+impl<'info> TokenTransfer for Context<'_, '_, '_, 'info, VaultWithdraw<'info>> {
     fn token_transfer(&self, usdc: u64) -> Result<()> {
         declare_pool_payer_seeds!(self.accounts.pool, self.bumps.pool_payer, seeds);
         let transfer_cpi_accounts = Transfer {
