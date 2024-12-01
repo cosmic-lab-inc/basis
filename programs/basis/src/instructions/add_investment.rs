@@ -10,20 +10,28 @@ use drift_vaults::state::{Size, Vault, VaultDepositor};
 
 pub fn add_investment<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, AddInvestment<'info>>,
+    params: AddInvestmentParams,
 ) -> Result<()> {
     let investment = Investment {
         investor: ctx.accounts.investor.key(),
         init_ts: Clock::get()?.unix_timestamp,
+        weight: params.weight,
         ..Default::default()
     };
     ctx.initialize_investor()?;
     let mut pool = ctx.accounts.pool.load_mut()?;
     pool.add_investment(investment)?;
-
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
+pub struct AddInvestmentParams {
+    pub weight: u32,
+}
+
 #[derive(Accounts)]
+#[instruction(params: AddInvestmentParams)]
+
 pub struct AddInvestment<'info> {
     pub vault: AccountLoader<'info, Vault>,
 

@@ -40,6 +40,7 @@ import {
 } from '@drift-labs/vaults-sdk';
 import { assert } from 'chai';
 import {
+	AddInvestmentParams,
 	Basis,
 	DRIFT_PROGRAM_ID,
 	DRIFT_VAULTS_PROGRAM_ID,
@@ -433,9 +434,12 @@ describe('basis', () => {
 		await sendAndConfirm(connection, poolAuth, [...ataIxs, ix], [basisMint]);
 	});
 
-	it('Initialize Investor', async () => {
+	it('Add Investment', async () => {
+		const params: AddInvestmentParams = {
+			weight: 300_000,
+		};
 		const ix = await basisProgram.methods
-			.addInvestment()
+			.addInvestment(params)
 			.accounts({
 				investor,
 				vault: protocolVault,
@@ -858,7 +862,6 @@ describe('basis', () => {
 				false,
 				solPrice
 			).toNumber() / QUOTE_PRECISION.toNumber();
-		console.log('pnl:', pnl);
 		assert.strictEqual(pnl, 502.058334);
 
 		const upnl =
@@ -988,7 +991,6 @@ describe('basis', () => {
 		await sendAndConfirm(connection, poolAuth, [ix]);
 
 		const poolUsdc = await tokenBalance(connection, poolUsdcVault);
-		console.log('poolUsdc:', poolUsdc);
 		assert.strictEqual(poolUsdc, 451.852499);
 
 		const poolAcct: Pool = await basisProgram.account.pool.fetch(pool);

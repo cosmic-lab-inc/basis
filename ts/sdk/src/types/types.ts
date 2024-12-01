@@ -31,6 +31,10 @@ export type Pool = {
 	padding: number[];
 };
 
+export type AddInvestmentParams = {
+	weight: number;
+};
+
 export type RemoveInvestmentParams = {
 	investmentIndex: number;
 };

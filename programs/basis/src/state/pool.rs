@@ -75,19 +75,21 @@ impl Pool {
             .ok_or(ErrorCode::InvestmentNotFound)
     }
 
-    pub fn investments(&self) -> impl Iterator<Item = &Investment> {
+    pub fn investments(&self, ignore: Option<&Investment>) -> impl Iterator<Item = &Investment> {
+        let ignore_key = ignore
+            .map(|investment| investment.investor)
+            .unwrap_or(Pubkey::default());
         self.investments
             .iter()
-            .filter(|investment| !investment.is_empty())
+            .filter(move |investment| !investment.is_empty() && ignore_key != investment.investor)
     }
 
     /// Recalculate the weights of all investments based on their realized profit ratios,
     /// and update the weights of each investment.
     /// The weights are used during rebalance to determine the amount of funds to move between investments.
-    fn update_investment_weights(&mut self) -> PoolResult<()> {
+    fn update_investment_weights(&mut self, ignore: Option<&Investment>) -> PoolResult<()> {
         let total_weight = self
-            .investments
-            .iter()
+            .investments(ignore)
             .flat_map(|i| i.realized_profit_ratio())
             .sum();
         for investment in self.investments.iter_mut() {
@@ -103,7 +105,7 @@ impl Pool {
             .position(|investment| investment.is_empty())
             .ok_or(ErrorCode::NoInvestmentsAvailable)?;
         self.investments[new_investment_index] = investment;
-        self.update_investment_weights()?;
+        self.update_investment_weights(Some(&investment))?;
         Ok(new_investment_index)
     }
 
@@ -113,14 +115,13 @@ impl Pool {
             .get(index)
             .ok_or(Investment::default())
             .map_err(|_| ErrorCode::InvestmentNotFound)?;
-        let result = if existing_investment.is_empty() {
+        if existing_investment.is_empty() {
             Err(ErrorCode::InvestmentNotFound)
         } else {
             self.investments[index] = Investment::default();
+            self.update_investment_weights(None)?;
             Ok(index)
-        };
-        self.update_investment_weights()?;
-        result
+        }
     }
 
     pub fn initial_exchange_rate() -> PoolResult<u128> {

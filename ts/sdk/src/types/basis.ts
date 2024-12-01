@@ -109,7 +109,14 @@ export type Basis = {
 					isSigner: false;
 				}
 			];
-			args: [];
+			args: [
+				{
+					name: 'params';
+					type: {
+						defined: 'AddInvestmentParams';
+					};
+				}
+			];
 		},
 		{
 			name: 'removeInvestment';
@@ -735,6 +742,18 @@ export type Basis = {
 	];
 	types: [
 		{
+			name: 'AddInvestmentParams';
+			type: {
+				kind: 'struct';
+				fields: [
+					{
+						name: 'weight';
+						type: 'u32';
+					}
+				];
+			};
+		},
+		{
 			name: 'PoolDepositParams';
 			type: {
 				kind: 'struct';
@@ -1024,7 +1043,14 @@ export const IDL: Basis = {
 					isSigner: false,
 				},
 			],
-			args: [],
+			args: [
+				{
+					name: 'params',
+					type: {
+						defined: 'AddInvestmentParams',
+					},
+				},
+			],
 		},
 		{
 			name: 'removeInvestment',
@@ -1649,6 +1675,18 @@ export const IDL: Basis = {
 		},
 	],
 	types: [
+		{
+			name: 'AddInvestmentParams',
+			type: {
+				kind: 'struct',
+				fields: [
+					{
+						name: 'weight',
+						type: 'u32',
+					},
+				],
+			},
+		},
 		{
 			name: 'PoolDepositParams',
 			type: {

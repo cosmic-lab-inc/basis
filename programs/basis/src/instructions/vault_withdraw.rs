@@ -5,7 +5,6 @@ use crate::state::{Investment, Pool};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
 use drift::instructions::optional_accounts::AccountMaps;
-use drift::math::insurance::if_shares_to_vault_amount as depositor_shares_to_vault_amount;
 use drift::program::Drift;
 use drift::state::user::User;
 use drift_vaults::cpi::accounts::Withdraw;

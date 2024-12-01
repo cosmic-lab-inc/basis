@@ -27,9 +27,11 @@ pub fn rebalance<'c: 'info, 'info>(
 pub struct Rebalance<'info> {
     pub vault: AccountLoader<'info, Vault>,
 
-    /// CHECK: Validated as [`VaultDepositor`] with appropriate seeds in CPI to DriftVaults program
-    #[account(mut)]
-    pub investor: AccountInfo<'info>,
+    #[account(
+        mut,
+        constraint = is_investment_for_pool(&pool, &investor)?
+    )]
+    pub investor: AccountLoader<'info, VaultDepositor>,
 
     pub authority: Signer<'info>,
 
