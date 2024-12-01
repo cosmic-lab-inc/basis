@@ -58,10 +58,33 @@ mod basis_tests {
     }
 
     #[test]
-    fn investor_equity() -> PoolResult<()> {
-        let vault_equity = 50_502_058_334;
-        let vault_shares = 50_000_000_000;
-        let investor_shares = 50_000_000_000;
+    fn investment_profit_ratio() -> PoolResult<()> {
+        let d1 = 50_000_000_000;
+        let p1 = 451_852_498;
+        let pr1 = p1
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_div(d1)?;
+        println!("pr1: {}", pr1);
+
+        let d2 = 100_000_000_000;
+        let p2 = 962_999_666;
+        let pr2 = p2
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_div(d2)?;
+        println!("pr2: {}", pr2);
+
+        let total_weight = pr1.safe_add(pr2)?;
+
+        let w1 = pr1.safe_mul(QUOTE_PRECISION)?.safe_div(total_weight)?;
+        println!("w1: {}", w1);
+
+        let w2 = pr2.safe_mul(QUOTE_PRECISION)?.safe_div(total_weight)?;
+        println!("w2: {}", w2);
+
+        let wt = w1.safe_add(w2)?;
+        println!("wt: {}", wt);
 
         Ok(())
     }

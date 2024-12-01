@@ -5,6 +5,7 @@ use crate::state::Investment;
 use crate::Size;
 use anchor_lang::prelude::*;
 use drift_macros::assert_no_slop;
+use drift_vaults::state::VaultDepositor;
 use static_assertions::const_assert_eq;
 
 #[assert_no_slop]
@@ -60,6 +61,35 @@ impl Size for Pool {
 const_assert_eq!(Pool::SIZE, std::mem::size_of::<Pool>() + 8);
 
 impl Pool {
+    pub fn get_investment(&self, investor: Pubkey) -> PoolResult<&Investment> {
+        self.investments
+            .iter()
+            .find(|investment| investment.investor == investor)
+            .ok_or(ErrorCode::InvestmentNotFound)
+    }
+
+    pub fn get_investment_mut(&mut self, investor: Pubkey) -> PoolResult<&mut Investment> {
+        self.investments
+            .iter_mut()
+            .find(|investment| investment.investor == investor)
+            .ok_or(ErrorCode::InvestmentNotFound)
+    }
+    
+    /// Recalculate the weights of all investments based on their realized profit ratios,
+    /// and update the weights of each investment.
+    /// The weights are used during rebalance to determine the amount of funds to move between investments.
+    fn update_investment_weights(&mut self) -> PoolResult<()> {
+        let total_weight = self
+            .investments
+            .iter()
+            .flat_map(|i| i.realized_profit_ratio())
+            .sum();
+        for investment in self.investments.iter_mut() {
+            investment.update_weight(total_weight)?;
+        }
+        Ok(())
+    }
+
     pub fn add_investment(&mut self, investment: Investment) -> PoolResult<usize> {
         let new_investment_index = self
             .investments
@@ -67,6 +97,7 @@ impl Pool {
             .position(|investment| investment.is_empty())
             .ok_or(ErrorCode::NoInvestmentsAvailable)?;
         self.investments[new_investment_index] = investment;
+        self.update_investment_weights()?;
         Ok(new_investment_index)
     }
 
@@ -76,12 +107,14 @@ impl Pool {
             .get(index)
             .ok_or(Investment::default())
             .map_err(|_| ErrorCode::InvestmentNotFound)?;
-        if existing_investment.is_empty() {
+        let result = if existing_investment.is_empty() {
             Err(ErrorCode::InvestmentNotFound)
         } else {
             self.investments[index] = Investment::default();
             Ok(index)
-        }
+        };
+        self.update_investment_weights()?;
+        result
     }
 
     pub fn initial_exchange_rate() -> PoolResult<u128> {
@@ -117,23 +150,34 @@ impl Pool {
         Ok(())
     }
 
-    pub fn deposit(&mut self, usdc: u64) -> PoolResult<u64> {
+    pub fn deposit(&mut self, usdc: u64, investor: &VaultDepositor) -> PoolResult<u64> {
         let basis = self.usdc_to_basis(usdc)?;
         self.deposits = self.deposits.safe_add(usdc.cast()?)?;
         self.supply = self.supply.safe_add(basis)?;
+        let investment = self.get_investment_mut(investor.pubkey)?;
+        investment.deposit(usdc)?;
         self.update_exchange_rate()?;
         basis.cast()
     }
 
-    pub fn withdraw(&mut self, basis: u64) -> PoolResult<u64> {
+    pub fn withdraw(&mut self, basis: u64, investor: &VaultDepositor) -> PoolResult<u64> {
         let usdc = self.basis_to_usdc(basis)?;
         self.deposits = self.deposits.safe_sub(usdc)?;
         self.supply = self.supply.safe_sub(basis.cast()?)?;
+        let investment = self.get_investment_mut(investor.pubkey)?;
+        investment.withdraw(usdc.cast()?)?;
         self.update_exchange_rate()?;
         usdc.cast()
     }
 
-    pub fn distribute_yield(&mut self, amount: u64, clock: &Clock) -> PoolResult<()> {
+    pub fn distribute_yield(
+        &mut self,
+        amount: u64,
+        investor: &VaultDepositor,
+        clock: &Clock,
+    ) -> PoolResult<()> {
+        let investment = self.get_investment_mut(investor.pubkey)?;
+        investment.distribute_yield(amount)?;
         self.deposits = self.deposits.safe_add(amount.cast()?)?;
         self.last_distribution_ts = clock.unix_timestamp;
         self.update_exchange_rate()?;

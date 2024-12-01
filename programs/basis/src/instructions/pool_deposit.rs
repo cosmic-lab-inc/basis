@@ -16,8 +16,9 @@ pub fn pool_deposit<'c: 'info, 'info>(
     params: PoolDepositParams,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
-    let basis_to_mint = pool.deposit(params.usdc)?;
-    msg!("basis to mint: {}", basis_to_mint);
+    let investor = ctx.accounts.investor.load()?;
+    let basis_to_mint = pool.deposit(params.usdc, &investor)?;
+    msg!("{} usdc, -> {} basis", params.usdc, basis_to_mint);
     drop(pool);
 
     ctx.token_transfer(params.usdc)?;
@@ -37,7 +38,6 @@ pub struct PoolDepositParams {
 pub struct PoolDeposit<'info> {
     #[account(mut)]
     pub vault: AccountLoader<'info, Vault>,
-    /// CHECK: Seeds validated in CPI to DriftVaults program
     #[account(mut)]
     pub investor: AccountLoader<'info, VaultDepositor>,
     #[account(mut)]

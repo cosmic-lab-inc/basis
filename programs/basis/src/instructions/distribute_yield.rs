@@ -15,9 +15,7 @@ pub fn distribute_yield<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, DistributeYield<'info>>,
 ) -> Result<()> {
     let clock = &Clock::get()?;
-    let investor = ctx.accounts.investor.load()?;
     let pool_payer_usdc_before = ctx.accounts.pool_payer_usdc_token_account.amount;
-    drop(investor);
 
     ctx.withdraw()?;
 
@@ -28,12 +26,10 @@ pub fn distribute_yield<'c: 'info, 'info>(
 
     ctx.token_transfer(usdc_to_distribute)?;
 
-    ctx.accounts.pool_usdc_token_account.reload()?;
-    let pool_usdc_after = ctx.accounts.pool_usdc_token_account.amount;
-    msg!("pool_usdc_after: {}", pool_usdc_after);
-
     let mut pool = ctx.accounts.pool.load_mut()?;
-    pool.distribute_yield(usdc_to_distribute, clock)?;
+    let investor = ctx.accounts.investor.load()?;
+    pool.distribute_yield(usdc_to_distribute, &investor, clock)?;
+
     Ok(())
 }
 

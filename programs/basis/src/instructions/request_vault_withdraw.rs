@@ -45,7 +45,7 @@ pub fn request_vault_withdraw<'c: 'info, 'info>(
         vault.calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)?;
 
     let InvestmentEquity { equity, .. } =
-        Investment::investment_equity_with_profit_share(vault_equity, &investor, &vault, &mut vp)?;
+        Investment::equity_breakdown(vault_equity, &investor, &vault, &mut vp)?;
 
     msg!("USDC in vault: {}", vault_equity);
     msg!("investor USDC in vault: {}", equity);

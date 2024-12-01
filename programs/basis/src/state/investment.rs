@@ -1,7 +1,8 @@
-use crate::constants::PERCENTAGE_PRECISION;
-use crate::error::PoolResult;
+use crate::constants::{PERCENTAGE_PRECISION, QUOTE_PRECISION};
+use crate::error::{ErrorCode, PoolResult};
 use crate::math::{Cast, SafeMath};
 use crate::state::Size;
+use crate::validate;
 use anchor_lang::prelude::*;
 use drift::math::insurance::if_shares_to_vault_amount as shares_to_amount;
 use drift_vaults::state::{Vault, VaultDepositor, VaultDepositorBase, VaultProtocol};
@@ -14,9 +15,12 @@ use std::cell::RefMut;
 pub struct Investment {
     /// PDA of [`VaultDepositor`] account which owns shares in a [`Vault`]
     pub investor: Pubkey,
+    /// Total USDC deposits allocated by the pool to this investment
+    /// This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6
+    pub deposits: u128,
     /// Total USDC profit distributed to the pool by this investment
     /// This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6
-    pub total_profit: u128,
+    pub profit: u128,
     /// Time this investment was initialized
     pub init_ts: i64,
     /// Basis points of the investment's weight in the pool (10_000 = 100%, 1 = 0.01%)
@@ -26,20 +30,48 @@ pub struct Investment {
 }
 
 impl Size for Investment {
-    const SIZE: usize = 32 + 16 + 8 + 4 + 4;
+    const SIZE: usize = 32 + 16 * 2 + 8 + 4 + 4;
 }
 const_assert_eq!(Investment::SIZE, std::mem::size_of::<Investment>());
+
+pub trait InvestorProvider<'a> {
+    fn investors(&self) -> Result<Vec<AccountLoader<'a, VaultDepositor>>>;
+}
+
+impl<'a: 'info, 'info, T: anchor_lang::Bumps> InvestorProvider<'a>
+    for Context<'_, '_, 'a, 'info, T>
+{
+    fn investors(&self) -> Result<Vec<AccountLoader<'a, VaultDepositor>>> {
+        let investors: Vec<AccountLoader<'a, VaultDepositor>> = self
+            .remaining_accounts
+            .iter()
+            .flat_map(AccountLoader::<'a, VaultDepositor>::try_from)
+            .collect();
+        Ok(investors)
+    }
+}
 
 impl Investment {
     pub fn is_empty(self) -> bool {
         self.investor == Pubkey::default() && self.init_ts == 0 && self.weight == 0
     }
 
-    pub fn investment_equity(
-        vault_equity: u64,
-        vault: &Vault,
-        investor: &VaultDepositor,
-    ) -> Result<u64> {
+    pub fn deposit(&mut self, amount: u64) -> PoolResult<()> {
+        self.deposits = self.deposits.safe_add(amount.cast()?)?;
+        Ok(())
+    }
+
+    pub fn withdraw(&mut self, amount: u64) -> PoolResult<()> {
+        self.deposits = self.deposits.safe_sub(amount.cast()?)?;
+        Ok(())
+    }
+
+    pub fn distribute_yield(&mut self, amount: u64) -> PoolResult<()> {
+        self.profit = self.profit.safe_add(amount.cast()?)?;
+        Ok(())
+    }
+
+    pub fn equity(vault_equity: u64, vault: &Vault, investor: &VaultDepositor) -> Result<u64> {
         let equity = shares_to_amount(
             investor.get_vault_shares(),
             vault.total_shares,
@@ -48,7 +80,7 @@ impl Investment {
         Ok(equity)
     }
 
-    pub fn investment_withdraw_request_equity(
+    pub fn withdraw_request_equity(
         vault_equity: u64,
         vault: &Vault,
         investor: &VaultDepositor,
@@ -61,7 +93,7 @@ impl Investment {
         Ok(equity.min(investor.last_withdraw_request.value))
     }
 
-    pub fn investment_profit(investor_equity: u64, investor: &VaultDepositor) -> Result<i64> {
+    pub fn profit(investor_equity: u64, investor: &VaultDepositor) -> Result<i64> {
         let profit = investor_equity.cast::<i64>()?.safe_sub(
             investor
                 .net_deposits
@@ -70,14 +102,14 @@ impl Investment {
         Ok(profit)
     }
 
-    pub fn investment_equity_with_profit_share(
+    pub fn equity_breakdown(
         vault_equity: u64,
         investor: &VaultDepositor,
         vault: &Vault,
         vault_protocol: &mut Option<RefMut<VaultProtocol>>,
     ) -> Result<InvestmentEquity> {
-        let investor_equity = Investment::investment_equity(vault_equity, vault, investor)?;
-        let profit = Investment::investment_profit(investor_equity, investor)?;
+        let investor_equity = Investment::equity(vault_equity, vault, investor)?;
+        let profit = Investment::profit(investor_equity, investor)?;
         if profit > 0 {
             let profit_u128 = profit.cast::<u128>()?;
 
@@ -112,6 +144,31 @@ impl Investment {
             profit_after_share: profit,
             deposits: investor.net_deposits,
         })
+    }
+
+    /// Ratio of profit to deposits is used to determine weight of investment in the pool.
+    /// The more profitable, the higher the weight, which means more funds are allocated to this investment.
+    pub fn realized_profit_ratio(&self) -> PoolResult<u128> {
+        self.profit
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_div(self.deposits)
+    }
+
+    pub fn update_weight(&mut self, total_weight: u128) -> PoolResult<()> {
+        let profit_ratio = self.realized_profit_ratio()?;
+        let new_weight = profit_ratio
+            .safe_mul(QUOTE_PRECISION)?
+            .safe_div(total_weight)?;
+        // math is designed to calculate weight as basis points, where PERCENTAGE_PRECISION (1_000_000) = 100%
+        validate!(
+            new_weight <= PERCENTAGE_PRECISION,
+            ErrorCode::WeightTooLarge,
+            "Investment weight exceeds 100% represented by PERCENTAGE_PRECISION (1_000_000)"
+        )?;
+        // 1_000_000 is within the bounds of u32 so this cast is safe
+        self.weight = new_weight.cast()?;
+        Ok(())
     }
 }
 

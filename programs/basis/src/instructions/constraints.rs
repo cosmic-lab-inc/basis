@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, TokenAccount};
+use drift_vaults::state::VaultDepositor;
 use solana_program::program_option::COption;
 
 use crate::state::*;
@@ -22,4 +23,11 @@ pub fn is_pool_usdc_vault(
     token_account: &Account<TokenAccount>,
 ) -> Result<bool> {
     Ok(pool.load()?.usdc_vault.eq(&token_account.key()))
+}
+
+pub fn is_investment_for_pool(
+    pool: &AccountLoader<Pool>,
+    investor: &AccountLoader<VaultDepositor>,
+) -> Result<bool> {
+    Ok(pool.load()?.get_investment(investor.load()?.pubkey).is_ok())
 }

@@ -33,8 +33,7 @@ pub fn vault_withdraw<'c: 'info, 'info>(
     let vault_equity =
         vault.calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)?;
 
-    let usdc_to_distribute =
-        Investment::investment_withdraw_request_equity(vault_equity, &vault, &investor)?;
+    let usdc_to_distribute = Investment::withdraw_request_equity(vault_equity, &vault, &investor)?;
 
     msg!("USDC in vault: {}", vault_equity);
 

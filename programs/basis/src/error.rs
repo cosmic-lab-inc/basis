@@ -27,6 +27,8 @@ pub enum ErrorCode {
     NoYieldAvailable,
     #[msg("InsufficientBasisTokens")]
     InsufficientBasisTokens,
+    #[msg("WeightTooLarge")]
+    WeightTooLarge,
 }
 
 #[macro_export]

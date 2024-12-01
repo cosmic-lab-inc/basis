@@ -6,13 +6,15 @@ use crate::state::Pool;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{burn, transfer, Burn, Mint};
 use anchor_spl::token::{Token, TokenAccount, Transfer};
+use drift_vaults::state::VaultDepositor;
 
 pub fn pool_withdraw<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, PoolWithdraw<'info>>,
     params: PoolWithdrawParams,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
-    let usdc_to_issue = pool.withdraw(params.basis)?.safe_sub(1)?;
+    let investor = ctx.accounts.investor.load()?;
+    let usdc_to_issue = pool.withdraw(params.basis, &investor)?.safe_sub(1)?;
     drop(pool);
     msg!("USDC to issue: {}", usdc_to_issue);
     let pool_usdc = ctx.accounts.pool_usdc_token_account.amount;
@@ -32,6 +34,12 @@ pub struct PoolWithdrawParams {
 #[derive(Accounts)]
 #[instruction(params: PoolWithdrawParams)]
 pub struct PoolWithdraw<'info> {
+    #[account(
+        mut,
+        constraint = is_investment_for_pool(&pool, &investor)?
+    )]
+    pub investor: AccountLoader<'info, VaultDepositor>,
+
     #[account(mut)]
     pub pool_depositor: Signer<'info>,
     #[account(

@@ -2,17 +2,14 @@ use crate::constraints::*;
 use crate::cpis::DriftVaultsRequestWithdraw;
 use crate::error::ErrorCode;
 use crate::math::{Cast, SafeMath};
-use crate::state::{Investment, InvestmentEquity, Pool};
+use crate::state::*;
 use crate::{declare_pool_payer_seeds, validate};
 use anchor_lang::prelude::*;
 use drift::instructions::optional_accounts::AccountMaps;
 use drift::state::user::User;
 use drift_vaults::cpi::accounts::RequestWithdraw;
 use drift_vaults::program::DriftVaults;
-use drift_vaults::state::{
-    AccountMapProvider, VaultDepositor, VaultDepositorBase, VaultProtocolProvider,
-};
-use drift_vaults::state::{Vault, WithdrawUnit};
+use drift_vaults::state::*;
 
 pub fn request_distribute_yield<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, RequestDistributeYield<'info>>,
@@ -47,7 +44,7 @@ pub fn request_distribute_yield<'c: 'info, 'info>(
         profit,
         profit_after_share,
         ..
-    } = Investment::investment_equity_with_profit_share(vault_equity, &investor, &vault, &mut vp)?;
+    } = Investment::equity_breakdown(vault_equity, &investor, &vault, &mut vp)?;
 
     msg!("profit: {}", profit);
     msg!("profit_after_share: {}", profit_after_share);
@@ -61,8 +58,8 @@ pub fn request_distribute_yield<'c: 'info, 'info>(
     // todo: the equity available to withdraw is one unit less than the withdraw request (49,999.999999 instead of 50,000)
     //  which leads to the pool ending up with one less unit to redeem for basis.
     //  the problem arises during yield distribution. the "profit after share" is seemingly one unit higher than it should be,
-    //  such that withdrawing the original deposits is one unit less than we expect. 
-    //  rather than worrying about that down the line, we subtract one unit from profit to distribute so that it can be 
+    //  such that withdrawing the original deposits is one unit less than we expect.
+    //  rather than worrying about that down the line, we subtract one unit from profit to distribute so that it can be
     //  withdrawn with deposits if need be, so that a depositor can get the fair exchange rate of USDC deposits for their BASIS.
     let usdc_to_withdraw = profit_after_share.cast::<u64>()?.safe_sub(1)?;
     msg!("{} USDC to distribute", usdc_to_withdraw);
