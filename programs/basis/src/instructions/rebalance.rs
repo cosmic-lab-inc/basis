@@ -8,8 +8,8 @@ use drift_vaults::cpi::accounts::InitializeVaultDepositor;
 use drift_vaults::program::DriftVaults;
 use drift_vaults::state::{Size, Vault, VaultDepositor};
 
-pub fn add_investment<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, AddInvestment<'info>>,
+pub fn rebalance<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, Rebalance<'info>>,
 ) -> Result<()> {
     let investment = Investment {
         investor: ctx.accounts.investor.key(),
@@ -24,7 +24,7 @@ pub fn add_investment<'c: 'info, 'info>(
 }
 
 #[derive(Accounts)]
-pub struct AddInvestment<'info> {
+pub struct Rebalance<'info> {
     pub vault: AccountLoader<'info, Vault>,
 
     /// CHECK: Validated as [`VaultDepositor`] with appropriate seeds in CPI to DriftVaults program
@@ -54,7 +54,7 @@ pub struct AddInvestment<'info> {
     pub drift_vaults_program: Program<'info, DriftVaults>,
 }
 
-impl<'info> DriftVaultsInitializeInvestor for Context<'_, '_, '_, 'info, AddInvestment<'info>> {
+impl<'info> DriftVaultsInitializeInvestor for Context<'_, '_, '_, 'info, Rebalance<'info>> {
     fn initialize_investor(&self) -> Result<()> {
         // transfer lamports from authority to pool, so it can pay for CPI
         let system_program = self.accounts.system_program.to_account_info();

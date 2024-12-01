@@ -74,7 +74,13 @@ impl Pool {
             .find(|investment| investment.investor == investor)
             .ok_or(ErrorCode::InvestmentNotFound)
     }
-    
+
+    pub fn investments(&self) -> impl Iterator<Item = &Investment> {
+        self.investments
+            .iter()
+            .filter(|investment| !investment.is_empty())
+    }
+
     /// Recalculate the weights of all investments based on their realized profit ratios,
     /// and update the weights of each investment.
     /// The weights are used during rebalance to determine the amount of funds to move between investments.

@@ -7,7 +7,8 @@ export const BASIS_PROGRAM_ID = new PublicKey(
 
 export type Investment = {
 	investor: PublicKey;
-	totalProfit: BN;
+	equity: BN;
+	profit: BN;
 	initTs: BN;
 	weight: number;
 	padding: number[];
@@ -28,10 +29,6 @@ export type Pool = {
 	initTs: BN;
 	bump: number;
 	padding: number[];
-};
-
-export type AddInvestmentParams = {
-	weight: number;
 };
 
 export type RemoveInvestmentParams = {

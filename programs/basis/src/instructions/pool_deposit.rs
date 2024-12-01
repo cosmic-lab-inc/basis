@@ -18,8 +18,13 @@ pub fn pool_deposit<'c: 'info, 'info>(
     let mut pool = ctx.accounts.pool.load_mut()?;
     let investor = ctx.accounts.investor.load()?;
     let basis_to_mint = pool.deposit(params.usdc, &investor)?;
-    msg!("{} usdc, -> {} basis", params.usdc, basis_to_mint);
+    msg!(
+        "exchanging {} USDC for {} BASIS",
+        params.usdc,
+        basis_to_mint
+    );
     drop(pool);
+    drop(investor);
 
     ctx.token_transfer(params.usdc)?;
     ctx.deposit(params.usdc)?;

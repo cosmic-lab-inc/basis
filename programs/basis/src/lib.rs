@@ -26,9 +26,8 @@ pub mod basis {
 
     pub fn add_investment<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, AddInvestment<'info>>,
-        params: AddInvestmentParams,
     ) -> Result<()> {
-        instructions::add_investment(ctx, params)
+        instructions::add_investment(ctx)
     }
 
     pub fn remove_investment<'c: 'info, 'info>(

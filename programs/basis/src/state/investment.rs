@@ -16,8 +16,10 @@ pub struct Investment {
     /// PDA of [`VaultDepositor`] account which owns shares in a [`Vault`]
     pub investor: Pubkey,
     /// Total USDC deposits allocated by the pool to this investment
+    /// plus any profit distributed to the pool by this investment.
+    /// Net deposits then equals equity minus profit.
     /// This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6
-    pub deposits: u128,
+    pub equity: u128,
     /// Total USDC profit distributed to the pool by this investment
     /// This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6
     pub profit: u128,
@@ -57,17 +59,18 @@ impl Investment {
     }
 
     pub fn deposit(&mut self, amount: u64) -> PoolResult<()> {
-        self.deposits = self.deposits.safe_add(amount.cast()?)?;
+        self.equity = self.equity.safe_add(amount.cast()?)?;
         Ok(())
     }
 
     pub fn withdraw(&mut self, amount: u64) -> PoolResult<()> {
-        self.deposits = self.deposits.safe_sub(amount.cast()?)?;
+        self.equity = self.equity.safe_sub(amount.cast()?)?;
         Ok(())
     }
 
     pub fn distribute_yield(&mut self, amount: u64) -> PoolResult<()> {
         self.profit = self.profit.safe_add(amount.cast()?)?;
+        self.equity = self.equity.safe_add(amount.cast()?)?;
         Ok(())
     }
 
@@ -149,17 +152,25 @@ impl Investment {
     /// Ratio of profit to deposits is used to determine weight of investment in the pool.
     /// The more profitable, the higher the weight, which means more funds are allocated to this investment.
     pub fn realized_profit_ratio(&self) -> PoolResult<u128> {
-        self.profit
-            .safe_mul(QUOTE_PRECISION)?
-            .safe_mul(QUOTE_PRECISION)?
-            .safe_div(self.deposits)
+        if self.equity == 0 {
+            Ok(0)
+        } else {
+            let deposits = self.equity.safe_sub(self.profit)?;
+            self.profit
+                .safe_mul(QUOTE_PRECISION)?
+                .safe_mul(QUOTE_PRECISION)?
+                .safe_div(deposits)
+        }
     }
 
     pub fn update_weight(&mut self, total_weight: u128) -> PoolResult<()> {
         let profit_ratio = self.realized_profit_ratio()?;
-        let new_weight = profit_ratio
-            .safe_mul(QUOTE_PRECISION)?
-            .safe_div(total_weight)?;
+        let new_weight = match total_weight == 0 {
+            true => 0,
+            false => profit_ratio
+                .safe_mul(QUOTE_PRECISION)?
+                .safe_div(total_weight)?,
+        };
         // math is designed to calculate weight as basis points, where PERCENTAGE_PRECISION (1_000_000) = 100%
         validate!(
             new_weight <= PERCENTAGE_PRECISION,

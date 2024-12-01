@@ -109,14 +109,7 @@ export type Basis = {
 					isSigner: false;
 				}
 			];
-			args: [
-				{
-					name: 'params';
-					type: {
-						defined: 'AddInvestmentParams';
-					};
-				}
-			];
+			args: [];
 		},
 		{
 			name: 'removeInvestment';
@@ -431,6 +424,11 @@ export type Basis = {
 			name: 'poolWithdraw';
 			accounts: [
 				{
+					name: 'investor';
+					isMut: true;
+					isSigner: false;
+				},
+				{
 					name: 'poolDepositor';
 					isMut: true;
 					isSigner: true;
@@ -737,18 +735,6 @@ export type Basis = {
 	];
 	types: [
 		{
-			name: 'AddInvestmentParams';
-			type: {
-				kind: 'struct';
-				fields: [
-					{
-						name: 'weight';
-						type: 'u32';
-					}
-				];
-			};
-		},
-		{
 			name: 'PoolDepositParams';
 			type: {
 				kind: 'struct';
@@ -809,7 +795,17 @@ export type Basis = {
 						type: 'publicKey';
 					},
 					{
-						name: 'totalProfit';
+						name: 'equity';
+						docs: [
+							'Total USDC deposits allocated by the pool to this investment',
+							'plus any profit distributed to the pool by this investment.',
+							'Net deposits then equals equity minus profit.',
+							'This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6'
+						];
+						type: 'u128';
+					},
+					{
+						name: 'profit';
 						docs: [
 							'Total USDC profit distributed to the pool by this investment',
 							'This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6'
@@ -908,6 +904,11 @@ export type Basis = {
 			code: 6010;
 			name: 'InsufficientBasisTokens';
 			msg: 'InsufficientBasisTokens';
+		},
+		{
+			code: 6011;
+			name: 'WeightTooLarge';
+			msg: 'WeightTooLarge';
 		}
 	];
 };
@@ -1023,14 +1024,7 @@ export const IDL: Basis = {
 					isSigner: false,
 				},
 			],
-			args: [
-				{
-					name: 'params',
-					type: {
-						defined: 'AddInvestmentParams',
-					},
-				},
-			],
+			args: [],
 		},
 		{
 			name: 'removeInvestment',
@@ -1345,6 +1339,11 @@ export const IDL: Basis = {
 			name: 'poolWithdraw',
 			accounts: [
 				{
+					name: 'investor',
+					isMut: true,
+					isSigner: false,
+				},
+				{
 					name: 'poolDepositor',
 					isMut: true,
 					isSigner: true,
@@ -1651,18 +1650,6 @@ export const IDL: Basis = {
 	],
 	types: [
 		{
-			name: 'AddInvestmentParams',
-			type: {
-				kind: 'struct',
-				fields: [
-					{
-						name: 'weight',
-						type: 'u32',
-					},
-				],
-			},
-		},
-		{
 			name: 'PoolDepositParams',
 			type: {
 				kind: 'struct',
@@ -1723,7 +1710,17 @@ export const IDL: Basis = {
 						type: 'publicKey',
 					},
 					{
-						name: 'totalProfit',
+						name: 'equity',
+						docs: [
+							'Total USDC deposits allocated by the pool to this investment',
+							'plus any profit distributed to the pool by this investment.',
+							'Net deposits then equals equity minus profit.',
+							'This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6',
+						],
+						type: 'u128',
+					},
+					{
+						name: 'profit',
 						docs: [
 							'Total USDC profit distributed to the pool by this investment',
 							'This is USDC (6 decimals) multiplied by QUOTE_PRECISION which is also 10^6',
@@ -1822,6 +1819,11 @@ export const IDL: Basis = {
 			code: 6010,
 			name: 'InsufficientBasisTokens',
 			msg: 'InsufficientBasisTokens',
+		},
+		{
+			code: 6011,
+			name: 'WeightTooLarge',
+			msg: 'WeightTooLarge',
 		},
 	],
 };

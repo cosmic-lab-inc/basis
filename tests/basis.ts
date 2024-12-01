@@ -40,7 +40,6 @@ import {
 } from '@drift-labs/vaults-sdk';
 import { assert } from 'chai';
 import {
-	AddInvestmentParams,
 	Basis,
 	DRIFT_PROGRAM_ID,
 	DRIFT_VAULTS_PROGRAM_ID,
@@ -61,7 +60,6 @@ import {
 	createAtaIdempotent,
 	createMintIxs,
 	sendAndConfirm,
-	simulate,
 	tokenBalance,
 } from './helpers';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
@@ -436,11 +434,8 @@ describe('basis', () => {
 	});
 
 	it('Initialize Investor', async () => {
-		const params: AddInvestmentParams = {
-			weight: 1,
-		};
 		const ix = await basisProgram.methods
-			.addInvestment(params)
+			.addInvestment()
 			.accounts({
 				investor,
 				vault: protocolVault,
@@ -840,13 +835,16 @@ describe('basis', () => {
 		}
 		const solPerpQuote =
 			solPerpPos.quoteAssetAmount.toNumber() / QUOTE_PRECISION.toNumber();
-		assert(solPerpPos.baseAssetAmount.eq(ZERO));
-		assert(usdcAmount.eq(vaultUser.getFreeCollateral()));
+		assert.strictEqual(solPerpPos.baseAssetAmount.toNumber(), 0);
+		assert.strictEqual(
+			usdcAmount.toNumber(),
+			vaultUser.getFreeCollateral().toNumber()
+		);
 
 		const solPrice = vaultUser.driftClient.getOracleDataForPerpMarket(0);
-		assert(
-			finalSolPerpPrice ===
-				solPrice.price.toNumber() / PRICE_PRECISION.toNumber()
+		assert.strictEqual(
+			finalSolPerpPrice,
+			solPrice.price.toNumber() / PRICE_PRECISION.toNumber()
 		);
 
 		const solPerpMarket = delegateClient.driftClient.getPerpMarketAccount(0);
@@ -861,16 +859,16 @@ describe('basis', () => {
 				solPrice
 			).toNumber() / QUOTE_PRECISION.toNumber();
 		console.log('pnl:', pnl);
-		// assert.strictEqual(pnl, 502.058334);
+		assert.strictEqual(pnl, 502.058334);
 
 		const upnl =
 			vaultUser.getUnrealizedPNL().toNumber() / QUOTE_PRECISION.toNumber();
-		assert(pnl === upnl);
-		assert(
-			solPerpPos.quoteAssetAmount.toNumber() / QUOTE_PRECISION.toNumber() ===
-				upnl
+		assert.strictEqual(pnl, upnl);
+		assert.strictEqual(
+			solPerpPos.quoteAssetAmount.toNumber() / QUOTE_PRECISION.toNumber(),
+			upnl
 		);
-		assert(solPerpQuote === pnl);
+		assert.strictEqual(solPerpQuote, pnl);
 
 		await vaultUser.fetchAccounts();
 		try {
@@ -896,8 +894,7 @@ describe('basis', () => {
 			.getUserAccount();
 		const settledPnl =
 			vaultUserAcct.settledPerpPnl.toNumber() / QUOTE_PRECISION.toNumber();
-		console.log('settledPnl:', settledPnl);
-		assert(settledPnl === pnl);
+		assert.strictEqual(settledPnl, pnl);
 	});
 
 	it('Request Distribute Yield', async () => {
@@ -942,8 +939,7 @@ describe('basis', () => {
 		const investorAcct: VaultDepositor =
 			await program.account.vaultDepositor.fetch(investor);
 		const wdr = investorAcct.lastWithdrawRequest.value;
-		console.log('wdr', wdr.toNumber());
-		// assert.strictEqual(wdr.toNumber(), 451852500);
+		assert.strictEqual(wdr.toNumber(), 451852500);
 	});
 
 	it('Distribute Yield', async () => {
@@ -1099,7 +1095,6 @@ describe('basis', () => {
 
 	it('Pool Withdraw', async () => {
 		const poolUsdcBefore = await tokenBalance(connection, poolUsdcVault);
-		console.log('pool usdc before withdraw:', poolUsdcBefore);
 		assert.strictEqual(poolUsdcBefore, 50451.852498);
 
 		const basisBalance = await tokenBalance(
@@ -1112,6 +1107,7 @@ describe('basis', () => {
 		const ix = await basisProgram.methods
 			.poolWithdraw(params)
 			.accounts({
+				investor,
 				poolDepositor: poolDepositor.publicKey,
 				poolDepositorUsdcTokenAccount,
 				poolDepositorBasisTokenAccount,
@@ -1131,10 +1127,7 @@ describe('basis', () => {
 			poolAcct.exchangeRate.toNumber() /
 			QUOTE_PRECISION.toNumber() /
 			QUOTE_PRECISION.toNumber();
-		console.log('pool usdc:', poolUsdcAfter);
-		console.log('deposits:', deposits);
-		console.log('supply:', supply);
-		console.log('exr:', exchangeRate);
+		assert.strictEqual(poolUsdcAfter, 0);
 		assert.strictEqual(deposits, 0);
 		assert.strictEqual(supply, 0);
 		assert.strictEqual(exchangeRate, 1);

@@ -4,6 +4,7 @@ mod distribute_yield;
 mod initialize_pool;
 mod pool_deposit;
 mod pool_withdraw;
+mod rebalance;
 mod remove_investment;
 mod request_distribute_yield;
 mod request_vault_withdraw;
