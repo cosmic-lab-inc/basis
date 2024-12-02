@@ -99,15 +99,75 @@ impl Pool {
     /// Recalculate the weights of all investments based on their realized profit ratios,
     /// and update the weights of each investment.
     /// The weights are used during rebalance to determine the amount of funds to move between investments.
-    fn update_investment_weights(&mut self, ignore: Option<&Investment>) -> PoolResult<()> {
-        let total_weight = self
-            .investments(ignore)
-            .flat_map(|i| i.realized_profit_ratio())
-            .sum();
-        for investment in self.investments_mut(ignore) {
-            investment.update_weight(total_weight)?;
+    fn update_investment_weights(
+        &mut self,
+        new_investment: Option<&mut Investment>,
+    ) -> PoolResult<()> {
+        match new_investment {
+            Some(new) => {
+                let rem_w = PERCENTAGE_PRECISION.safe_sub(new.weight.cast()?)?;
+                let undiluted_weight = match new.weight == PERCENTAGE_PRECISION.cast::<u32>()? {
+                    true => PERCENTAGE_PRECISION,
+                    false => new
+                        .weight
+                        .cast::<u128>()?
+                        .safe_mul(PERCENTAGE_PRECISION)?
+                        .safe_mul(PERCENTAGE_PRECISION)?
+                        .safe_div(rem_w)?
+                        .safe_div(PERCENTAGE_PRECISION)?,
+                };
+                msg!("new investment, diluted weight: {}", new.weight);
+                msg!("new investment, undiluted weight: {}", undiluted_weight);
+                new.weight = undiluted_weight.cast()?;
+
+                let total_profit_ratio: u128 = self
+                    .investments(Some(new))
+                    .flat_map(|i| i.realized_profit_ratio())
+                    .sum();
+                msg!("pre total profit ratio: {}", total_profit_ratio);
+
+                let new_investment_profit_ratio = new
+                    .weight
+                    .cast::<u128>()?
+                    .safe_mul(total_profit_ratio)?
+                    .safe_div(PERCENTAGE_PRECISION)?;
+                msg!(
+                    "new investment profit ratio: {}",
+                    new_investment_profit_ratio
+                );
+
+                let total_profit_ratio =
+                    total_profit_ratio.safe_add(new_investment_profit_ratio)?;
+                msg!("post total profit ratio: {}", total_profit_ratio);
+
+                if total_profit_ratio == 0 {
+                    return Ok(());
+                }
+
+                for investment in self.investments_mut(Some(new)) {
+                    investment.update_weight(total_profit_ratio)?;
+                }
+                Ok(())
+            }
+            None => {
+                let total_profit_ratio: u128 = self
+                    .investments(None)
+                    .flat_map(|i| i.realized_profit_ratio())
+                    .sum();
+                msg!("total profit ratio: {}", total_profit_ratio);
+
+                for investment in self.investments_mut(None) {
+                    investment.update_weight(total_profit_ratio)?;
+                }
+                Ok(())
+            }
         }
-        Ok(())
+    }
+
+    pub fn no_investments(&self) -> bool {
+        self.investments
+            .iter()
+            .all(|investment| investment.is_empty())
     }
 
     pub fn add_investment(&mut self, investment: Investment) -> PoolResult<usize> {
@@ -117,12 +177,18 @@ impl Pool {
             .position(|investment| investment.is_empty())
             .ok_or(ErrorCode::NoInvestmentsAvailable)?;
         self.investments[new_investment_index] = investment;
-        if new_investment_index == 0 {
+        if self.no_investments() {
             // if index is zero then this is the only investment in the pool,
             // thus it can only have 100% of the weight
             self.investments[new_investment_index].weight = PERCENTAGE_PRECISION.cast()?;
         }
-        self.update_investment_weights(Some(&investment))?;
+        let mut new_investment = self.investments[new_investment_index];
+        self.update_investment_weights(Some(&mut new_investment))?;
+        msg!("Investment added at index: {}", new_investment_index);
+        msg!(
+            "Final weight: {}",
+            self.investments[new_investment_index].weight
+        );
         Ok(new_investment_index)
     }
 
@@ -174,7 +240,12 @@ impl Pool {
         Ok(())
     }
 
-    pub fn deposit(&mut self, usdc: u64, investor: &VaultDepositor) -> PoolResult<u64> {
+    pub fn investment_withdraw(&mut self, usdc: u64, investor: &VaultDepositor) -> PoolResult<()> {
+        let investment = self.get_investment_mut(investor.pubkey)?;
+        investment.withdraw(usdc)
+    }
+
+    pub fn pool_deposit(&mut self, usdc: u64, investor: &VaultDepositor) -> PoolResult<u64> {
         let basis = self.usdc_to_basis(usdc)?;
         self.deposits = self.deposits.safe_add(usdc.cast()?)?;
         self.supply = self.supply.safe_add(basis)?;
@@ -184,14 +255,69 @@ impl Pool {
         basis.cast()
     }
 
-    pub fn withdraw(&mut self, basis: u64, investor: &VaultDepositor) -> PoolResult<u64> {
+    pub fn pool_withdraw(&mut self, basis: u64) -> PoolResult<u64> {
         let usdc = self.basis_to_usdc(basis)?;
         self.deposits = self.deposits.safe_sub(usdc)?;
         self.supply = self.supply.safe_sub(basis.cast()?)?;
-        let investment = self.get_investment_mut(investor.pubkey)?;
-        investment.withdraw(usdc.cast()?)?;
         self.update_exchange_rate()?;
         usdc.cast()
+    }
+
+    /// If investment deposits to vault are less than weight, use pool USDC to increase investment.
+    /// If investment deposits are more than weight, use investment USDC to decrease investment.
+    pub fn calculate_investment_rebalance(
+        &self,
+        investor: &VaultDepositor,
+    ) -> PoolResult<RebalanceParams> {
+        let investment = self.get_investment(investor.pubkey)?;
+        msg!("investment weight: {}", investment.weight);
+        msg!("pool deposits: {}", self.deposits);
+
+        let target_deposit = investment
+            .weight
+            .cast::<u128>()?
+            .safe_mul(PERCENTAGE_PRECISION)?
+            .safe_mul(self.deposits)?
+            .safe_div(PERCENTAGE_PRECISION)?
+            .safe_div(PERCENTAGE_PRECISION)?;
+
+        msg!("investment deposits: {}", investment.deposits());
+
+        let usdc = target_deposit
+            .cast::<i64>()?
+            .safe_sub(investment.deposits().cast()?)?;
+
+        msg!("usdc to rebalance: {}", usdc);
+        match usdc {
+            usdc if usdc > 0 => Ok(RebalanceParams {
+                action: RebalanceAction::Deposit,
+                usdc: usdc.cast()?,
+            }),
+            usdc if usdc < 0 => Ok(RebalanceParams {
+                action: RebalanceAction::Withdraw,
+                usdc: usdc.abs().cast()?,
+            }),
+            _ => Ok(RebalanceParams::default()),
+        }
+    }
+
+    pub fn rebalance(
+        &mut self,
+        params: &RebalanceParams,
+        investor: &VaultDepositor,
+    ) -> PoolResult<()> {
+        let investment = self.get_investment_mut(investor.pubkey)?;
+        match params.action {
+            RebalanceAction::Deposit => {
+                investment.deposit(params.usdc)?;
+            }
+            RebalanceAction::Withdraw => {
+                investment.withdraw(params.usdc)?;
+            }
+            _ => {}
+        }
+
+        Ok(())
     }
 
     pub fn distribute_yield(
@@ -205,6 +331,21 @@ impl Pool {
         self.deposits = self.deposits.safe_add(amount.cast()?)?;
         self.last_distribution_ts = clock.unix_timestamp;
         self.update_exchange_rate()?;
+        self.update_investment_weights(None)?;
         Ok(())
     }
+}
+
+#[derive(Debug, Default)]
+pub enum RebalanceAction {
+    Deposit,
+    Withdraw,
+    #[default]
+    None,
+}
+
+#[derive(Debug, Default)]
+pub struct RebalanceParams {
+    pub action: RebalanceAction,
+    pub usdc: u64,
 }

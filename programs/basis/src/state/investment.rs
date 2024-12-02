@@ -55,7 +55,11 @@ impl<'a: 'info, 'info, T: anchor_lang::Bumps> InvestorProvider<'a>
 
 impl Investment {
     pub fn is_empty(self) -> bool {
-        self.investor == Pubkey::default() && self.init_ts == 0 && self.weight == 0
+        self == Investment::default()
+    }
+
+    pub fn deposits(&self) -> u128 {
+        self.equity.saturating_sub(self.profit)
     }
 
     pub fn deposit(&mut self, amount: u64) -> PoolResult<()> {
@@ -163,13 +167,14 @@ impl Investment {
         }
     }
 
-    pub fn update_weight(&mut self, total_weight: u128) -> PoolResult<()> {
+    pub fn update_weight(&mut self, total_profit_ratio: u128) -> PoolResult<()> {
         let profit_ratio = self.realized_profit_ratio()?;
-        let new_weight = match total_weight == 0 {
+        msg!("profit_ratio: {}", profit_ratio);
+        let new_weight = match total_profit_ratio == 0 {
             true => 0,
             false => profit_ratio
-                .safe_mul(QUOTE_PRECISION)?
-                .safe_div(total_weight)?,
+                .safe_mul(PERCENTAGE_PRECISION)?
+                .safe_div(total_profit_ratio)?,
         };
         // math is designed to calculate weight as basis points, where PERCENTAGE_PRECISION (1_000_000) = 100%
         validate!(
@@ -177,8 +182,10 @@ impl Investment {
             ErrorCode::WeightTooLarge,
             "Investment weight exceeds 100% represented by PERCENTAGE_PRECISION (1_000_000)"
         )?;
+        msg!("weight before: {}", self.weight);
         // 1_000_000 is within the bounds of u32 so this cast is safe
         self.weight = new_weight.cast()?;
+        msg!("weight after: {}", self.weight);
         Ok(())
     }
 }

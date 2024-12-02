@@ -29,6 +29,10 @@ pub enum ErrorCode {
     InsufficientBasisTokens,
     #[msg("WeightTooLarge")]
     WeightTooLarge,
+    #[msg("InsufficientInvestmentToFulfillWithdraw")]
+    InsufficientInvestmentToFulfillWithdraw,
+    #[msg("RedeemPeriodNotZero")]
+    RedeemPeriodNotZero,
 }
 
 #[macro_export]
@@ -36,7 +40,14 @@ macro_rules! cast_error {
     () => {{
         || {
             let error_code = $crate::error::ErrorCode::CastError;
-            msg!("Error {} thrown at {}:{}", error_code, file!(), line!());
+            let caller = std::panic::Location::caller();
+            msg!(
+                "Error {} thrown at {}:{}",
+                error_code,
+                caller.file(),
+                caller.line()
+            );
+            // msg!("Error {} thrown at {}:{}", error_code, file!(), line!());
             error_code
         }
     }};
@@ -47,7 +58,14 @@ macro_rules! math_error {
     () => {{
         || {
             let error_code = $crate::error::ErrorCode::MathError;
-            msg!("Error {} thrown at {}:{}", error_code, file!(), line!());
+            let caller = std::panic::Location::caller();
+            msg!(
+                "Error {} thrown at {}:{}",
+                error_code,
+                caller.file(),
+                caller.line()
+            );
+            // msg!("Error {} thrown at {}:{}", error_code, file!(), line!());
             error_code
         }
     }};
@@ -58,7 +76,14 @@ macro_rules! unwrap_error {
     () => {{
         || {
             let error_code = $crate::error::ErrorCode::UnwrapError;
-            msg!("Error {} thrown at {}:{}", error_code, file!(), line!());
+            let caller = std::panic::Location::caller();
+            msg!(
+                "Error {} thrown at {}:{}",
+                error_code,
+                caller.file(),
+                caller.line()
+            );
+            // msg!("Error {} thrown at {}:{}", error_code, file!(), line!());
             error_code
         }
     }};

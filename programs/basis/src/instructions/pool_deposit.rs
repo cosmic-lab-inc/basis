@@ -17,7 +17,7 @@ pub fn pool_deposit<'c: 'info, 'info>(
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
     let investor = ctx.accounts.investor.load()?;
-    let basis_to_mint = pool.deposit(params.usdc, &investor)?;
+    let basis_to_mint = pool.pool_deposit(params.usdc, &investor)?;
     msg!(
         "exchanging {} USDC for {} BASIS",
         params.usdc,

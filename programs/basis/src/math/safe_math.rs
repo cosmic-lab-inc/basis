@@ -1,9 +1,10 @@
-use crate::error::PoolResult;
+use crate::error::{ErrorCode, PoolResult};
 use crate::math::ceil_div::CheckedCeilDiv;
 use crate::math::floor_div::CheckedFloorDiv;
 use crate::math::{U192, U256};
 use crate::math_error;
 use anchor_lang::solana_program::msg;
+use std::panic::Location;
 
 pub trait SafeMath: Sized {
     fn safe_add(self, rhs: Self) -> PoolResult<Self>;
@@ -21,7 +22,11 @@ macro_rules! checked_impl {
             fn safe_add(self, v: $t) -> PoolResult<$t> {
                 match self.checked_add(v) {
                     Some(result) => Ok(result),
-                    None => Err(math_error!()()),
+                    None => {
+                        let caller = Location::caller();
+                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
+                        Err(ErrorCode::MathError)
+                    }
                 }
             }
 
@@ -30,7 +35,11 @@ macro_rules! checked_impl {
             fn safe_sub(self, v: $t) -> PoolResult<$t> {
                 match self.checked_sub(v) {
                     Some(result) => Ok(result),
-                    None => Err(math_error!()()),
+                    None => {
+                        let caller = Location::caller();
+                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
+                        Err(ErrorCode::MathError)
+                    }
                 }
             }
 
@@ -39,7 +48,11 @@ macro_rules! checked_impl {
             fn safe_mul(self, v: $t) -> PoolResult<$t> {
                 match self.checked_mul(v) {
                     Some(result) => Ok(result),
-                    None => Err(math_error!()()),
+                    None => {
+                        let caller = Location::caller();
+                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
+                        Err(ErrorCode::MathError)
+                    }
                 }
             }
 
@@ -48,7 +61,11 @@ macro_rules! checked_impl {
             fn safe_div(self, v: $t) -> PoolResult<$t> {
                 match self.checked_div(v) {
                     Some(result) => Ok(result),
-                    None => Err(math_error!()()),
+                    None => {
+                        let caller = Location::caller();
+                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
+                        Err(ErrorCode::MathError)
+                    }
                 }
             }
 
@@ -57,7 +74,11 @@ macro_rules! checked_impl {
             fn safe_div_ceil(self, v: $t) -> PoolResult<$t> {
                 match self.checked_ceil_div(v) {
                     Some(result) => Ok(result),
-                    None => Err(math_error!()()),
+                    None => {
+                        let caller = Location::caller();
+                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
+                        Err(ErrorCode::MathError)
+                    }
                 }
             }
         }

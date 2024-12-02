@@ -428,6 +428,100 @@ export type Basis = {
 			args: [];
 		},
 		{
+			name: 'vaultImmediateWithdraw';
+			accounts: [
+				{
+					name: 'vault';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'investor';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'vaultTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftUserStats';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftUser';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftState';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'driftSpotMarketVault';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftSigner';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'poolUsdcTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'pool';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'poolPayer';
+					isMut: true;
+					isSigner: false;
+					docs: ['PDA signer that pays for transaction fees'];
+				},
+				{
+					name: 'poolPayerUsdcTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'payer';
+					isMut: true;
+					isSigner: true;
+				},
+				{
+					name: 'driftVaultsProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'driftProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'tokenProgram';
+					isMut: false;
+					isSigner: false;
+				}
+			];
+			args: [
+				{
+					name: 'params';
+					type: {
+						defined: 'VaultImmediateWithdrawParams';
+					};
+				}
+			];
+		},
+		{
 			name: 'poolWithdraw';
 			accounts: [
 				{
@@ -634,6 +728,93 @@ export type Basis = {
 				}
 			];
 			args: [];
+		},
+		{
+			name: 'rebalance';
+			accounts: [
+				{
+					name: 'vault';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'investor';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'vaultTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftUserStats';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftUser';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftState';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'driftSpotMarketVault';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'driftSigner';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'poolUsdcTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'pool';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'poolPayer';
+					isMut: true;
+					isSigner: false;
+					docs: ['PDA signer that pays for transaction fees'];
+				},
+				{
+					name: 'poolPayerUsdcTokenAccount';
+					isMut: true;
+					isSigner: false;
+				},
+				{
+					name: 'payer';
+					isMut: true;
+					isSigner: true;
+				},
+				{
+					name: 'driftVaultsProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'driftProgram';
+					isMut: false;
+					isSigner: false;
+				},
+				{
+					name: 'tokenProgram';
+					isMut: false;
+					isSigner: false;
+				}
+			];
+			args: [];
 		}
 	];
 	accounts: [
@@ -802,6 +983,18 @@ export type Basis = {
 			};
 		},
 		{
+			name: 'VaultImmediateWithdrawParams';
+			type: {
+				kind: 'struct';
+				fields: [
+					{
+						name: 'usdc';
+						type: 'u64';
+					}
+				];
+			};
+		},
+		{
 			name: 'Investment';
 			type: {
 				kind: 'struct';
@@ -849,6 +1042,23 @@ export type Basis = {
 						type: {
 							array: ['u8', 4];
 						};
+					}
+				];
+			};
+		},
+		{
+			name: 'RebalanceAction';
+			type: {
+				kind: 'enum';
+				variants: [
+					{
+						name: 'Deposit';
+					},
+					{
+						name: 'Withdraw';
+					},
+					{
+						name: 'None';
 					}
 				];
 			};
@@ -928,6 +1138,16 @@ export type Basis = {
 			code: 6011;
 			name: 'WeightTooLarge';
 			msg: 'WeightTooLarge';
+		},
+		{
+			code: 6012;
+			name: 'InsufficientInvestmentToFulfillWithdraw';
+			msg: 'InsufficientInvestmentToFulfillWithdraw';
+		},
+		{
+			code: 6013;
+			name: 'RedeemPeriodNotZero';
+			msg: 'RedeemPeriodNotZero';
 		}
 	];
 };
@@ -1362,6 +1582,100 @@ export const IDL: Basis = {
 			args: [],
 		},
 		{
+			name: 'vaultImmediateWithdraw',
+			accounts: [
+				{
+					name: 'vault',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'investor',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'vaultTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftUserStats',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftUser',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftState',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'driftSpotMarketVault',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftSigner',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'poolUsdcTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'pool',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'poolPayer',
+					isMut: true,
+					isSigner: false,
+					docs: ['PDA signer that pays for transaction fees'],
+				},
+				{
+					name: 'poolPayerUsdcTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'payer',
+					isMut: true,
+					isSigner: true,
+				},
+				{
+					name: 'driftVaultsProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'driftProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'tokenProgram',
+					isMut: false,
+					isSigner: false,
+				},
+			],
+			args: [
+				{
+					name: 'params',
+					type: {
+						defined: 'VaultImmediateWithdrawParams',
+					},
+				},
+			],
+		},
+		{
 			name: 'poolWithdraw',
 			accounts: [
 				{
@@ -1569,6 +1883,93 @@ export const IDL: Basis = {
 			],
 			args: [],
 		},
+		{
+			name: 'rebalance',
+			accounts: [
+				{
+					name: 'vault',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'investor',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'vaultTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftUserStats',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftUser',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftState',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'driftSpotMarketVault',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'driftSigner',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'poolUsdcTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'pool',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'poolPayer',
+					isMut: true,
+					isSigner: false,
+					docs: ['PDA signer that pays for transaction fees'],
+				},
+				{
+					name: 'poolPayerUsdcTokenAccount',
+					isMut: true,
+					isSigner: false,
+				},
+				{
+					name: 'payer',
+					isMut: true,
+					isSigner: true,
+				},
+				{
+					name: 'driftVaultsProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'driftProgram',
+					isMut: false,
+					isSigner: false,
+				},
+				{
+					name: 'tokenProgram',
+					isMut: false,
+					isSigner: false,
+				},
+			],
+			args: [],
+		},
 	],
 	accounts: [
 		{
@@ -1736,6 +2137,18 @@ export const IDL: Basis = {
 			},
 		},
 		{
+			name: 'VaultImmediateWithdrawParams',
+			type: {
+				kind: 'struct',
+				fields: [
+					{
+						name: 'usdc',
+						type: 'u64',
+					},
+				],
+			},
+		},
+		{
 			name: 'Investment',
 			type: {
 				kind: 'struct',
@@ -1783,6 +2196,23 @@ export const IDL: Basis = {
 						type: {
 							array: ['u8', 4],
 						},
+					},
+				],
+			},
+		},
+		{
+			name: 'RebalanceAction',
+			type: {
+				kind: 'enum',
+				variants: [
+					{
+						name: 'Deposit',
+					},
+					{
+						name: 'Withdraw',
+					},
+					{
+						name: 'None',
 					},
 				],
 			},
@@ -1862,6 +2292,16 @@ export const IDL: Basis = {
 			code: 6011,
 			name: 'WeightTooLarge',
 			msg: 'WeightTooLarge',
+		},
+		{
+			code: 6012,
+			name: 'InsufficientInvestmentToFulfillWithdraw',
+			msg: 'InsufficientInvestmentToFulfillWithdraw',
+		},
+		{
+			code: 6013,
+			name: 'RedeemPeriodNotZero',
+			msg: 'RedeemPeriodNotZero',
 		},
 	],
 };

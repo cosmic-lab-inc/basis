@@ -43,6 +43,10 @@ export type PoolDepositParams = {
 	usdc: BN;
 };
 
+export type VaultImmediateWithdrawParams = {
+	usdc: BN;
+};
+
 export type RequestVaultWithdrawParams = {
 	basis: BN;
 };

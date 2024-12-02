@@ -13,10 +13,8 @@ pub fn pool_withdraw<'c: 'info, 'info>(
     params: PoolWithdrawParams,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
-    let investor = ctx.accounts.investor.load()?;
-    let usdc_to_issue = pool.withdraw(params.basis, &investor)?.safe_sub(1)?;
+    let usdc_to_issue = pool.pool_withdraw(params.basis)?.safe_sub(1)?;
     drop(pool);
-    drop(investor);
     msg!("USDC to issue: {}", usdc_to_issue);
     let pool_usdc = ctx.accounts.pool_usdc_token_account.amount;
     msg!("pool usdc: {}", pool_usdc);

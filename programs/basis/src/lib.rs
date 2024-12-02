@@ -58,6 +58,13 @@ pub mod basis {
         instructions::vault_withdraw(ctx)
     }
 
+    pub fn vault_immediate_withdraw<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, VaultImmediateWithdraw<'info>>,
+        params: VaultImmediateWithdrawParams,
+    ) -> Result<()> {
+        instructions::vault_immediate_withdraw(ctx, params)
+    }
+
     pub fn pool_withdraw<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, PoolWithdraw<'info>>,
         params: PoolWithdrawParams,
@@ -75,5 +82,11 @@ pub mod basis {
         ctx: Context<'_, '_, 'c, 'info, DistributeYield<'info>>,
     ) -> Result<()> {
         instructions::distribute_yield(ctx)
+    }
+
+    pub fn rebalance<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, Rebalance<'info>>,
+    ) -> Result<()> {
+        instructions::rebalance(ctx)
     }
 }

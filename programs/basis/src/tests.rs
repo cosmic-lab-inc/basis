@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod basis_tests {
-    use crate::constants::QUOTE_PRECISION;
+    use crate::constants::{PERCENTAGE_PRECISION, QUOTE_PRECISION};
     use crate::error::PoolResult;
     use crate::math::casting::Cast;
     use crate::math::SafeMath;
@@ -59,32 +59,91 @@ mod basis_tests {
 
     #[test]
     fn investment_profit_ratio() -> PoolResult<()> {
-        let d1 = 50_000_000_000;
-        let p1 = 451_852_498;
-        let pr1 = p1
+        let d1: u128 = 50_000_000_000;
+        let p1: u128 = 451_852_498;
+        let sw1: u32 = 1_000_000;
+        let pr1: u128 = p1
             .safe_mul(QUOTE_PRECISION)?
             .safe_mul(QUOTE_PRECISION)?
             .safe_div(d1)?;
         println!("pr1: {}", pr1);
 
-        let d2 = 100_000_000_000;
-        let p2 = 962_999_666;
-        let pr2 = p2
-            .safe_mul(QUOTE_PRECISION)?
-            .safe_mul(QUOTE_PRECISION)?
-            .safe_div(d2)?;
+        let d2: u128 = 50_000_000_000;
+        let p2: u128 = 0;
+        let sw2: u32 = 300_000;
+
+        let total_pr = pr1;
+
+        let rem_w = PERCENTAGE_PRECISION.safe_sub(sw2.cast()?)?;
+        let undiluted_sw2 = sw2
+            .cast::<u128>()?
+            .safe_mul(PERCENTAGE_PRECISION)?
+            .safe_mul(PERCENTAGE_PRECISION)?
+            .safe_div(rem_w)?
+            .safe_div(PERCENTAGE_PRECISION)?;
+        println!("undiluted_sw2: {}", undiluted_sw2);
+
+        let pr2 = undiluted_sw2
+            .cast::<u128>()?
+            .safe_mul(total_pr)?
+            .safe_div(PERCENTAGE_PRECISION)?;
         println!("pr2: {}", pr2);
 
-        let total_weight = pr1.safe_add(pr2)?;
+        let tpr = pr1.safe_add(pr2)?;
+        println!("tpr: {}", tpr);
 
-        let w1 = pr1.safe_mul(QUOTE_PRECISION)?.safe_div(total_weight)?;
-        println!("w1: {}", w1);
+        let ew1 = pr1.safe_mul(PERCENTAGE_PRECISION)?.safe_div(tpr)?;
+        println!("ew1: {}", ew1);
 
-        let w2 = pr2.safe_mul(QUOTE_PRECISION)?.safe_div(total_weight)?;
-        println!("w2: {}", w2);
+        let ew2 = pr2.safe_mul(PERCENTAGE_PRECISION)?.safe_div(tpr)?;
+        println!("ew2: {}", ew2);
 
-        let wt = w1.safe_add(w2)?;
-        println!("wt: {}", wt);
+        let tw = ew1.safe_add(ew2)?;
+        println!("tw: {}", tw);
+
+        Ok(())
+    }
+
+    #[test]
+    fn update_weights() -> PoolResult<()> {
+        let total_profit_ratio: u128 = 9_037_049_980;
+        let ignore_weight = 300_000;
+
+        let ignore_profit_ratio = ignore_weight
+            .cast::<u128>()?
+            .safe_mul(total_profit_ratio)?
+            .safe_div(PERCENTAGE_PRECISION)?;
+        println!("ipr: {}", ignore_profit_ratio);
+
+        let total_weight = total_profit_ratio.safe_add(ignore_profit_ratio)?;
+        println!("tw: {}", total_weight);
+
+        Ok(())
+    }
+
+    #[test]
+    fn rebalance_investment_deposit() -> PoolResult<()> {
+        let investment_deposits: u128 = 30_000.safe_mul(QUOTE_PRECISION)?;
+        // let investment_deposits: u128 = 0;
+        let pool_deposits_f64 = 50_000.0;
+        let pool_deposits: u128 = 50_000.safe_mul(QUOTE_PRECISION)?;
+        let investment_weight_f64 = 0.769230;
+        let investment_weight: u128 = 769_230;
+
+        let expected = pool_deposits_f64 * investment_weight_f64;
+        println!("expected target deposits: {}", expected);
+
+        let target_deposit = investment_weight
+            .safe_mul(PERCENTAGE_PRECISION)?
+            .safe_mul(pool_deposits)?
+            .safe_div(PERCENTAGE_PRECISION)?
+            .safe_div(PERCENTAGE_PRECISION)?;
+        println!("actual target deposits: {}", target_deposit);
+
+        let rebalance = target_deposit
+            .cast::<i64>()?
+            .safe_sub(investment_deposits.cast()?)?;
+        println!("rebalance: {}", rebalance);
 
         Ok(())
     }

@@ -8,6 +8,7 @@ mod rebalance;
 mod remove_investment;
 mod request_distribute_yield;
 mod request_vault_withdraw;
+mod vault_immediate_withdraw;
 mod vault_withdraw;
 
 pub use add_investment::*;
@@ -15,7 +16,9 @@ pub use distribute_yield::*;
 pub use initialize_pool::*;
 pub use pool_deposit::*;
 pub use pool_withdraw::*;
+pub use rebalance::*;
 pub use remove_investment::*;
 pub use request_distribute_yield::*;
 pub use request_vault_withdraw::*;
+pub use vault_immediate_withdraw::*;
 pub use vault_withdraw::*;

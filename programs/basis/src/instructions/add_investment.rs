@@ -1,7 +1,10 @@
+use crate::constants::PERCENTAGE_PRECISION;
 use crate::constraints::*;
 use crate::cpis::DriftVaultsInitializeInvestor;
-use crate::declare_pool_payer_seeds;
+use crate::error::ErrorCode;
+use crate::math::{Cast, SafeMath};
 use crate::state::{Investment, Pool};
+use crate::{declare_pool_payer_seeds, validate};
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use drift_vaults::cpi::accounts::InitializeVaultDepositor;
@@ -12,16 +15,32 @@ pub fn add_investment<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, AddInvestment<'info>>,
     params: AddInvestmentParams,
 ) -> Result<()> {
+    let vault = ctx.accounts.vault.load()?;
+    validate!(
+        vault.redeem_period == 0,
+        ErrorCode::RedeemPeriodNotZero,
+        "Vault redeem period must be zero to allow immediate withdrawals"
+    )?;
+    drop(vault);
+
+    ctx.initialize_investor()?;
+
+    let mut pool = ctx.accounts.pool.load_mut()?;
+
+    let weight = match pool.no_investments() {
+        true => PERCENTAGE_PRECISION.cast::<u32>()?,
+        false => params.weight,
+    };
+
     let investment = Investment {
         investor: ctx.accounts.investor.key(),
         init_ts: Clock::get()?.unix_timestamp,
-        weight: params.weight,
+        weight,
         ..Default::default()
     };
-    ctx.initialize_investor()?;
-    let mut pool = ctx.accounts.pool.load_mut()?;
-    let index = pool.add_investment(investment)?;
-    msg!("Investment added at index: {}", index);
+
+    pool.add_investment(investment)?;
+
     Ok(())
 }
 
